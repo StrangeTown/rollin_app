@@ -10,21 +10,58 @@ import SwiftData
 
 struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
-    @Query private var items: [Item]
+    
+    @Query(filter: #Predicate<Item> { $0.assignedDate == nil }, sort: \Item.timestamp, order: .reverse)
+    private var inboxItems: [Item]
+    
+    @Query(filter: #Predicate<Item> { $0.assignedDate != nil }, sort: \Item.assignedDate, order: .reverse)
+    private var scheduledItems: [Item]
+    
+    @State private var newTaskTitle = ""
 
     var body: some View {
         NavigationSplitView {
             List {
-                ForEach(items) { item in
-                    NavigationLink {
-                        Text("Item at \(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))")
-                    } label: {
-                        Text(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))
+                Section(header: Text("Inbox")) {
+                    ForEach(inboxItems) { item in
+                        HStack(alignment: .top) {
+                            Image(systemName: item.isCompleted ? "checkmark.circle.fill" : "circle")
+                                .onTapGesture {
+                                    toggleCompletion(for: item)
+                                }
+                            Text(item.title)
+                                .strikethrough(item.isCompleted)
+                                .foregroundColor(item.isCompleted ? .secondary : .primary)
+                                .lineLimit(nil)
+                                .fixedSize(horizontal: false, vertical: true)
+                            Spacer()
+                            Button(action: { moveToToday(item) }) {
+                                Label("Today", systemImage: "sun.max")
+                                    .labelStyle(.iconOnly)
+                            }
+                            .buttonStyle(.borderless)
+                            .help("Move to Today")
+                        }
+                        .contextMenu {
+                            Button(role: .destructive) {
+                                deleteItem(item)
+                            } label: {
+                                Label("Delete", systemImage: "trash")
+                            }
+                        }
                     }
+                    .onDelete(perform: deleteInboxItems)
                 }
-                .onDelete(perform: deleteItems)
             }
-            .navigationSplitViewColumnWidth(min: 180, ideal: 200)
+            .navigationSplitViewColumnWidth(min: 250, ideal: 300)
+            .safeAreaInset(edge: .bottom) {
+                TextField("Add new task to Inbox", text: $newTaskTitle)
+                    .textFieldStyle(.roundedBorder)
+                    .padding()
+                    .onSubmit {
+                        addItem()
+                    }
+            }
             .toolbar {
                 ToolbarItem {
                     Button(action: addItem) {
@@ -33,18 +70,117 @@ struct ContentView: View {
                 }
             }
         } detail: {
-            Text("Select an item")
+            List {
+                if scheduledItems.isEmpty {
+                    ContentUnavailableView("No scheduled tasks", systemImage: "calendar", description: Text("Move tasks from Inbox to plan your day."))
+                } else {
+                    ForEach(groupedItems.keys.sorted(by: >), id: \.self) { date in
+                        Section(header: Text(formatSectionHeader(date))) {
+                            ForEach(groupedItems[date]!) { item in
+                                HStack(alignment: .top) {
+                                    Image(systemName: item.isCompleted ? "checkmark.circle.fill" : "circle")
+                                        .onTapGesture {
+                                            toggleCompletion(for: item)
+                                        }
+                                    Text(item.title)
+                                        .strikethrough(item.isCompleted)
+                                        .foregroundColor(item.isCompleted ? .secondary : .primary)
+                                        .lineLimit(nil)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                    Spacer()
+                                    Button(action: { removeFromToday(item) }) {
+                                        Label("Remove from Today", systemImage: "xmark.circle")
+                                            .labelStyle(.iconOnly)
+                                    }
+                                    .buttonStyle(.borderless)
+                                    .help("Remove from Today")
+                                }
+                                .contextMenu {
+                                    Button(role: .destructive) {
+                                        deleteItem(item)
+                                    } label: {
+                                        Label("Delete", systemImage: "trash")
+                                    }
+                                }
+                            }
+                            .onDelete { offsets in
+                                deleteScheduledItems(at: offsets, in: groupedItems[date]!)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    private var groupedItems: [Date: [Item]] {
+        Dictionary(grouping: scheduledItems) { item in
+            Calendar.current.startOfDay(for: item.assignedDate!)
+        }
+    }
+    
+    private func formatSectionHeader(_ date: Date) -> String {
+        let calendar = Calendar.current
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MM.dd"
+        
+        let dateString = formatter.string(from: date)
+        
+        if calendar.isDateInToday(date) {
+            return "\(dateString) (Today)"
+        } else if calendar.isDateInYesterday(date) {
+            return "\(dateString) (Yesterday)"
+        } else if calendar.isDateInTomorrow(date) {
+            return "\(dateString) (Tomorrow)"
+        } else {
+            return dateString
         }
     }
 
     private func addItem() {
+        let trimmedTitle = newTaskTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedTitle.isEmpty else { return }
+        
         withAnimation {
-            let newItem = Item(timestamp: Date())
+            let newItem = Item(title: trimmedTitle)
             modelContext.insert(newItem)
+            newTaskTitle = ""
+        }
+    }
+    
+    private func toggleCompletion(for item: Item) {
+        withAnimation {
+            item.isCompleted.toggle()
+        }
+    }
+    
+    private func moveToToday(_ item: Item) {
+        withAnimation {
+            item.assignedDate = Date()
+        }
+    }
+    
+    private func removeFromToday(_ item: Item) {
+        withAnimation {
+            item.assignedDate = nil
         }
     }
 
-    private func deleteItems(offsets: IndexSet) {
+    private func deleteItem(_ item: Item) {
+        withAnimation {
+            modelContext.delete(item)
+        }
+    }
+
+    private func deleteInboxItems(offsets: IndexSet) {
+        withAnimation {
+            for index in offsets {
+                modelContext.delete(inboxItems[index])
+            }
+        }
+    }
+    
+    private func deleteScheduledItems(at offsets: IndexSet, in items: [Item]) {
         withAnimation {
             for index in offsets {
                 modelContext.delete(items[index])
