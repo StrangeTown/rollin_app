@@ -10,6 +10,7 @@ import SwiftData
 
 struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.scenePhase) private var scenePhase
     
     @Query(filter: #Predicate<Item> { $0.assignedDate == nil }, sort: \Item.timestamp, order: .reverse)
     private var inboxItems: [Item]
@@ -111,6 +112,14 @@ struct ContentView: View {
                 }
             }
         }
+        .onAppear {
+            moveOverdueTasksToInbox()
+        }
+        .onChange(of: scenePhase) { _, newPhase in
+            if newPhase == .active {
+                moveOverdueTasksToInbox()
+            }
+        }
     }
     
     private var groupedItems: [Date: [Item]] {
@@ -184,6 +193,22 @@ struct ContentView: View {
         withAnimation {
             for index in offsets {
                 modelContext.delete(items[index])
+            }
+        }
+    }
+    
+    private func moveOverdueTasksToInbox() {
+        let calendar = Calendar.current
+        let startOfToday = calendar.startOfDay(for: Date())
+        
+        let overdueItems = scheduledItems.filter { item in
+            guard let date = item.assignedDate else { return false }
+            return !item.isCompleted && calendar.startOfDay(for: date) < startOfToday
+        }
+        
+        withAnimation {
+            for item in overdueItems {
+                item.assignedDate = nil
             }
         }
     }
