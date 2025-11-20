@@ -20,36 +20,24 @@ struct ContentView: View {
     
     @State private var newTaskTitle = ""
 
+    private static let sectionDateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MM.dd"
+        return formatter
+    }()
+
     var body: some View {
         NavigationSplitView {
             List {
                 Section(header: Text("Inbox")) {
                     ForEach(inboxItems) { item in
-                        HStack(alignment: .top) {
-                            Image(systemName: item.isCompleted ? "checkmark.circle.fill" : "circle")
-                                .onTapGesture {
-                                    toggleCompletion(for: item)
-                                }
-                            Text(item.title)
-                                .strikethrough(item.isCompleted)
-                                .foregroundColor(item.isCompleted ? .secondary : .primary)
-                                .lineLimit(nil)
-                                .fixedSize(horizontal: false, vertical: true)
-                            Spacer()
-                            Button(action: { moveToToday(item) }) {
-                                Label("Today", systemImage: "sun.max")
-                                    .labelStyle(.iconOnly)
-                            }
-                            .buttonStyle(.borderless)
-                            .help("Move to Today")
-                        }
-                        .contextMenu {
-                            Button(role: .destructive) {
-                                deleteItem(item)
-                            } label: {
-                                Label("Delete", systemImage: "trash")
-                            }
-                        }
+                        TaskRowView(
+                            item: item,
+                            onToggleCompletion: { toggleCompletion(for: item) },
+                            onMove: { moveToToday(item) },
+                            onDelete: { deleteItem(item) },
+                            isScheduled: false
+                        )
                     }
                     .onDelete(perform: deleteInboxItems)
                 }
@@ -78,31 +66,13 @@ struct ContentView: View {
                     ForEach(groupedItems.keys.sorted(by: >), id: \.self) { date in
                         Section(header: Text(formatSectionHeader(date))) {
                             ForEach(groupedItems[date]!) { item in
-                                HStack(alignment: .top) {
-                                    Image(systemName: item.isCompleted ? "checkmark.circle.fill" : "circle")
-                                        .onTapGesture {
-                                            toggleCompletion(for: item)
-                                        }
-                                    Text(item.title)
-                                        .strikethrough(item.isCompleted)
-                                        .foregroundColor(item.isCompleted ? .secondary : .primary)
-                                        .lineLimit(nil)
-                                        .fixedSize(horizontal: false, vertical: true)
-                                    Spacer()
-                                    Button(action: { removeFromToday(item) }) {
-                                        Label("Remove from Today", systemImage: "xmark.circle")
-                                            .labelStyle(.iconOnly)
-                                    }
-                                    .buttonStyle(.borderless)
-                                    .help("Remove from Today")
-                                }
-                                .contextMenu {
-                                    Button(role: .destructive) {
-                                        deleteItem(item)
-                                    } label: {
-                                        Label("Delete", systemImage: "trash")
-                                    }
-                                }
+                                TaskRowView(
+                                    item: item,
+                                    onToggleCompletion: { toggleCompletion(for: item) },
+                                    onMove: { removeFromToday(item) },
+                                    onDelete: { deleteItem(item) },
+                                    isScheduled: true
+                                )
                             }
                             .onDelete { offsets in
                                 deleteScheduledItems(at: offsets, in: groupedItems[date]!)
@@ -130,10 +100,7 @@ struct ContentView: View {
     
     private func formatSectionHeader(_ date: Date) -> String {
         let calendar = Calendar.current
-        let formatter = DateFormatter()
-        formatter.dateFormat = "MM.dd"
-        
-        let dateString = formatter.string(from: date)
+        let dateString = Self.sectionDateFormatter.string(from: date)
         
         if calendar.isDateInToday(date) {
             return "\(dateString) (Today)"
