@@ -25,7 +25,8 @@ struct ContentView: View {
     @Query(filter: #Predicate<Item> { $0.assignedDate != nil }, sort: \Item.assignedDate, order: .reverse)
     private var scheduledItems: [Item]
     
-    @State private var newTaskTitle = ""
+    @State private var showAddTaskSheet = false
+    @State private var columnVisibility: NavigationSplitViewVisibility = .all
 
     // Date formatter for section headers (e.g. "11.20")
     private static let sectionDateFormatter: DateFormatter = {
@@ -35,7 +36,7 @@ struct ContentView: View {
     }()
 
     var body: some View {
-        NavigationSplitView {
+        NavigationSplitView(columnVisibility: $columnVisibility) {
             // MARK: - Sidebar (Inbox)
             List {
                 Section(header: Text("Inbox")) {
@@ -53,19 +54,12 @@ struct ContentView: View {
                 }
             }
             .navigationSplitViewColumnWidth(min: 250, ideal: 300)
-            .safeAreaInset(edge: .bottom) {
-                // Input field for adding new tasks to Inbox
-                TextField("Add new task to Inbox", text: $newTaskTitle)
-                    .textFieldStyle(.roundedBorder)
-                    .padding()
-                    .onSubmit {
-                        addItem()
-                    }
-            }
             .toolbar {
                 ToolbarItem {
-                    Button(action: addItem) {
-                        Label("Add Item", systemImage: "plus")
+                    if columnVisibility != .detailOnly {
+                        Button(action: { showAddTaskSheet = true }) {
+                            Label("Add Item", systemImage: "plus")
+                        }
                     }
                 }
             }
@@ -111,6 +105,9 @@ struct ContentView: View {
             currentDate = Date()
             moveOverdueTasksToInbox()
         }
+        .sheet(isPresented: $showAddTaskSheet) {
+            AddTaskView()
+        }
     }
     
     // MARK: - Computed Properties
@@ -140,18 +137,6 @@ struct ContentView: View {
         }
     }
 
-    private func addItem() {
-        let trimmedTitle = newTaskTitle.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmedTitle.isEmpty else { return }
-        
-        withAnimation {
-            // Create new item in Inbox (assignedDate is nil by default)
-            let newItem = Item(title: trimmedTitle)
-            modelContext.insert(newItem)
-            newTaskTitle = ""
-        }
-    }
-    
     private func toggleCompletion(for item: Item) {
         withAnimation {
             item.isCompleted.toggle()
