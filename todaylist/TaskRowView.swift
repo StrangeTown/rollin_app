@@ -6,6 +6,7 @@ struct TaskRowView: View {
     let onMove: () -> Void
     let onDelete: () -> Void
     let isScheduled: Bool
+    let isToday: Bool
     
     var body: some View {
         HStack(alignment: .top) {
@@ -19,18 +20,23 @@ struct TaskRowView: View {
                 .lineLimit(nil)
                 .fixedSize(horizontal: false, vertical: true)
             Spacer()
-            Button(action: onMove) {
-                Label(isScheduled ? "Remove from Today" : "Today", 
-                      systemImage: isScheduled ? "xmark.circle" : "sun.max")
-                    .labelStyle(.iconOnly)
+            
+            if !isScheduled || isToday {
+                Button(action: onMove) {
+                    Label(isScheduled ? "Remove from Today" : "Today", 
+                          systemImage: isScheduled ? "xmark.circle" : "sun.max")
+                        .labelStyle(.iconOnly)
+                }
+                .buttonStyle(.borderless)
+                .help(isScheduled ? "Remove from Today" : "Move to Today")
             }
-            .buttonStyle(.borderless)
-            .help(isScheduled ? "Remove from Today" : "Move to Today")
         }
         .contextMenu {
-            Button(action: onMove) {
-                Label(isScheduled ? "Move to Inbox" : "Move to Today", 
-                      systemImage: isScheduled ? "tray" : "sun.max")
+            if !isScheduled || isToday {
+                Button(action: onMove) {
+                    Label(isScheduled ? "Move to Inbox" : "Move to Today", 
+                          systemImage: isScheduled ? "tray" : "sun.max")
+                }
             }
             
             Button(role: .destructive, action: onDelete) {

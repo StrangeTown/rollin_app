@@ -45,7 +45,8 @@ struct ContentView: View {
                             onToggleCompletion: { toggleCompletion(for: item) },
                             onMove: { moveToToday(item) },
                             onDelete: { deleteItem(item) },
-                            isScheduled: false
+                            isScheduled: false,
+                            isToday: false
                         )
                     }
                     .onDelete(perform: deleteInboxItems)
@@ -83,7 +84,8 @@ struct ContentView: View {
                                     onToggleCompletion: { toggleCompletion(for: item) },
                                     onMove: { removeFromToday(item) },
                                     onDelete: { deleteItem(item) },
-                                    isScheduled: true
+                                    isScheduled: true,
+                                    isToday: Calendar.current.isDate(date, inSameDayAs: currentDate)
                                 )
                             }
                             .onDelete { offsets in
