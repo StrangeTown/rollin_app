@@ -12,6 +12,8 @@ struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.scenePhase) private var scenePhase
     
+    @State private var currentDate = Date()
+    
     @Query(filter: #Predicate<Item> { $0.assignedDate == nil }, sort: \Item.timestamp, order: .reverse)
     private var inboxItems: [Item]
     
@@ -64,7 +66,7 @@ struct ContentView: View {
                     ContentUnavailableView("No scheduled tasks", systemImage: "calendar", description: Text("Move tasks from Inbox to plan your day."))
                 } else {
                     ForEach(groupedItems.keys.sorted(by: >), id: \.self) { date in
-                        Section(header: Text(formatSectionHeader(date))) {
+                        Section(header: Text(formatSectionHeader(date, relativeTo: currentDate))) {
                             ForEach(groupedItems[date]!) { item in
                                 TaskRowView(
                                     item: item,
@@ -83,12 +85,18 @@ struct ContentView: View {
             }
         }
         .onAppear {
+            currentDate = Date()
             moveOverdueTasksToInbox()
         }
         .onChange(of: scenePhase) { _, newPhase in
             if newPhase == .active {
+                currentDate = Date()
                 moveOverdueTasksToInbox()
             }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .NSCalendarDayChanged)) { _ in
+            currentDate = Date()
+            moveOverdueTasksToInbox()
         }
     }
     
@@ -98,15 +106,15 @@ struct ContentView: View {
         }
     }
     
-    private func formatSectionHeader(_ date: Date) -> String {
+    private func formatSectionHeader(_ date: Date, relativeTo referenceDate: Date) -> String {
         let calendar = Calendar.current
         let dateString = Self.sectionDateFormatter.string(from: date)
         
-        if calendar.isDateInToday(date) {
+        if calendar.isDate(date, inSameDayAs: referenceDate) {
             return "\(dateString) (Today)"
-        } else if calendar.isDateInYesterday(date) {
+        } else if calendar.isDate(date, inSameDayAs: calendar.date(byAdding: .day, value: -1, to: referenceDate)!) {
             return "\(dateString) (Yesterday)"
-        } else if calendar.isDateInTomorrow(date) {
+        } else if calendar.isDate(date, inSameDayAs: calendar.date(byAdding: .day, value: 1, to: referenceDate)!) {
             return "\(dateString) (Tomorrow)"
         } else {
             return dateString
@@ -166,7 +174,7 @@ struct ContentView: View {
     
     private func moveOverdueTasksToInbox() {
         let calendar = Calendar.current
-        let startOfToday = calendar.startOfDay(for: Date())
+        let startOfToday = calendar.startOfDay(for: currentDate)
         
         let overdueItems = scheduledItems.filter { item in
             guard let date = item.assignedDate else { return false }
