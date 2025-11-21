@@ -28,6 +28,11 @@ struct TaskRowView: View {
             .help(isScheduled ? "Remove from Today" : "Move to Today")
         }
         .contextMenu {
+            Button(action: onMove) {
+                Label(isScheduled ? "Move to Inbox" : "Move to Today", 
+                      systemImage: isScheduled ? "tray" : "sun.max")
+            }
+            
             Button(role: .destructive, action: onDelete) {
                 Label("Delete", systemImage: "trash")
             }

@@ -9,19 +9,25 @@ import SwiftUI
 import SwiftData
 
 struct ContentView: View {
+    // MARK: - Environment & State
     @Environment(\.modelContext) private var modelContext
     @Environment(\.scenePhase) private var scenePhase
     
+    // Tracks the current date to handle day changes (e.g. midnight)
     @State private var currentDate = Date()
     
+    // MARK: - Data Queries
+    // Fetch items that are not assigned to any date (Inbox)
     @Query(filter: #Predicate<Item> { $0.assignedDate == nil }, sort: \Item.timestamp, order: .reverse)
     private var inboxItems: [Item]
     
+    // Fetch items that have an assigned date (Scheduled/Today)
     @Query(filter: #Predicate<Item> { $0.assignedDate != nil }, sort: \Item.assignedDate, order: .reverse)
     private var scheduledItems: [Item]
     
     @State private var newTaskTitle = ""
 
+    // Date formatter for section headers (e.g. "11.20")
     private static let sectionDateFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateFormat = "MM.dd"
@@ -30,6 +36,7 @@ struct ContentView: View {
 
     var body: some View {
         NavigationSplitView {
+            // MARK: - Sidebar (Inbox)
             List {
                 Section(header: Text("Inbox")) {
                     ForEach(inboxItems) { item in
@@ -46,6 +53,7 @@ struct ContentView: View {
             }
             .navigationSplitViewColumnWidth(min: 250, ideal: 300)
             .safeAreaInset(edge: .bottom) {
+                // Input field for adding new tasks to Inbox
                 TextField("Add new task to Inbox", text: $newTaskTitle)
                     .textFieldStyle(.roundedBorder)
                     .padding()
@@ -61,11 +69,13 @@ struct ContentView: View {
                 }
             }
         } detail: {
+            // MARK: - Detail View (Scheduled Tasks)
             List {
                 if scheduledItems.isEmpty {
                     ContentUnavailableView("No scheduled tasks", systemImage: "calendar", description: Text("Move tasks from Inbox to plan your day."))
                 } else {
                     ForEach(groupedItems.keys.sorted(by: >), id: \.self) { date in
+                        // Group tasks by date (Today, Yesterday, etc.)
                         Section(header: Text(formatSectionHeader(date, relativeTo: currentDate))) {
                             ForEach(groupedItems[date]!) { item in
                                 TaskRowView(
@@ -84,6 +94,7 @@ struct ContentView: View {
                 }
             }
         }
+        // MARK: - Lifecycle & Events
         .onAppear {
             currentDate = Date()
             moveOverdueTasksToInbox()
@@ -100,12 +111,18 @@ struct ContentView: View {
         }
     }
     
+    // MARK: - Computed Properties
+    
+    // Groups scheduled items by their assigned date (ignoring time)
     private var groupedItems: [Date: [Item]] {
         Dictionary(grouping: scheduledItems) { item in
             Calendar.current.startOfDay(for: item.assignedDate!)
         }
     }
     
+    // MARK: - Helper Methods
+    
+    // Formats the date header with relative terms (Today, Yesterday, Tomorrow)
     private func formatSectionHeader(_ date: Date, relativeTo referenceDate: Date) -> String {
         let calendar = Calendar.current
         let dateString = Self.sectionDateFormatter.string(from: date)
@@ -126,6 +143,7 @@ struct ContentView: View {
         guard !trimmedTitle.isEmpty else { return }
         
         withAnimation {
+            // Create new item in Inbox (assignedDate is nil by default)
             let newItem = Item(title: trimmedTitle)
             modelContext.insert(newItem)
             newTaskTitle = ""
@@ -140,12 +158,14 @@ struct ContentView: View {
     
     private func moveToToday(_ item: Item) {
         withAnimation {
+            // Assign current date to move from Inbox to Today
             item.assignedDate = Date()
         }
     }
     
     private func removeFromToday(_ item: Item) {
         withAnimation {
+            // Remove assigned date to move back to Inbox
             item.assignedDate = nil
         }
     }
@@ -172,6 +192,7 @@ struct ContentView: View {
         }
     }
     
+    // Moves uncompleted tasks from past dates back to Inbox
     private func moveOverdueTasksToInbox() {
         let calendar = Calendar.current
         let startOfToday = calendar.startOfDay(for: currentDate)
