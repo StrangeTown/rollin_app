@@ -60,6 +60,7 @@ struct ContentView: View {
                         Button(action: { showAddTaskSheet = true }) {
                             Label("Add Item", systemImage: "plus")
                         }
+                        .keyboardShortcut("i", modifiers: .command)
                     }
                 }
             }
@@ -91,6 +92,15 @@ struct ContentView: View {
             }
         }
         // MARK: - Lifecycle & Events
+        .background {
+            if columnVisibility == .detailOnly {
+                Button("Add Task") {
+                    showAddTaskSheet = true
+                }
+                .keyboardShortcut("i", modifiers: .command)
+                .hidden()
+            }
+        }
         .onAppear {
             currentDate = Date()
             moveOverdueTasksToInbox()
