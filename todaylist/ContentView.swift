@@ -26,6 +26,7 @@ struct ContentView: View {
     private var scheduledItems: [Item]
     
     @State private var showAddTaskSheet = false
+    @State private var taskAssignedDate: Date? = nil
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
 
     // Date formatter for section headers (e.g. "11.20")
@@ -57,7 +58,10 @@ struct ContentView: View {
             .toolbar {
                 ToolbarItem {
                     if columnVisibility != .detailOnly {
-                        Button(action: { showAddTaskSheet = true }) {
+                        Button(action: { 
+                            taskAssignedDate = nil
+                            showAddTaskSheet = true 
+                        }) {
                             Label("Add Item", systemImage: "plus")
                         }
                         .keyboardShortcut("i", modifiers: .command)
@@ -72,7 +76,22 @@ struct ContentView: View {
                 } else {
                     ForEach(groupedItems.keys.sorted(by: >), id: \.self) { date in
                         // Group tasks by date (Today, Yesterday, etc.)
-                        Section(header: Text(formatSectionHeader(date, relativeTo: currentDate))) {
+                        Section(header: 
+                            HStack {
+                                Text(formatSectionHeader(date, relativeTo: currentDate))
+                                if Calendar.current.isDate(date, inSameDayAs: currentDate) {
+                                    Spacer()
+                                    Button(action: {
+                                        taskAssignedDate = currentDate
+                                        showAddTaskSheet = true
+                                    }) {
+                                        Image(systemName: "plus")
+                                    }
+                                    .buttonStyle(.borderless)
+                                    .help("Add task to Today")
+                                }
+                            }
+                        ) {
                             ForEach(groupedItems[date]!) { item in
                                 TaskRowView(
                                     item: item,
@@ -95,11 +114,19 @@ struct ContentView: View {
         .background {
             if columnVisibility == .detailOnly {
                 Button("Add Task") {
+                    taskAssignedDate = nil
                     showAddTaskSheet = true
                 }
                 .keyboardShortcut("i", modifiers: .command)
                 .hidden()
             }
+            
+            Button("Add to Today") {
+                taskAssignedDate = currentDate
+                showAddTaskSheet = true
+            }
+            .keyboardShortcut("t", modifiers: .command)
+            .hidden()
         }
         .onAppear {
             currentDate = Date()
@@ -116,7 +143,7 @@ struct ContentView: View {
             moveOverdueTasksToInbox()
         }
         .sheet(isPresented: $showAddTaskSheet) {
-            AddTaskView()
+            AddTaskView(assignedDate: taskAssignedDate)
         }
     }
     
