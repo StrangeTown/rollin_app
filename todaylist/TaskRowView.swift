@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 struct TaskRowView: View {
     let item: Item
@@ -8,16 +9,25 @@ struct TaskRowView: View {
     let isScheduled: Bool
     let isToday: Bool
     
+    @FocusState private var isFocused: Bool
+    
     var body: some View {
         HStack(alignment: .top) {
             Image(systemName: item.isCompleted ? "checkmark.circle.fill" : "circle")
                 .onTapGesture {
                     onToggleCompletion()
                 }
-            Text(item.title)
-                .foregroundColor(item.isCompleted ? .secondary.opacity(0.7) : .primary)
-                .lineLimit(nil)
-                .fixedSize(horizontal: false, vertical: true)
+            
+            TextField("Task Title", text: Binding(
+                get: { item.title },
+                set: { item.title = $0 }
+            ), axis: .vertical)
+            .textFieldStyle(.plain)
+            .foregroundColor(item.isCompleted ? .secondary.opacity(0.5) : .primary)
+            .lineLimit(nil)
+            .fixedSize(horizontal: false, vertical: true)
+            .multilineTextAlignment(.leading)
+            
             Spacer()
             
             if !isScheduled || isToday {
