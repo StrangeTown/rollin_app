@@ -15,8 +15,7 @@ struct TaskRowView: View {
                     onToggleCompletion()
                 }
             Text(item.title)
-                .strikethrough(item.isCompleted)
-                .foregroundColor(item.isCompleted ? .secondary : .primary)
+                .foregroundColor(item.isCompleted ? .secondary.opacity(0.7) : .primary)
                 .lineLimit(nil)
                 .fixedSize(horizontal: false, vertical: true)
             Spacer()
