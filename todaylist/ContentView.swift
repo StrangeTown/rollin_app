@@ -101,6 +101,7 @@ struct ContentView: View {
                                     isScheduled: true,
                                     isToday: Calendar.current.isDate(date, inSameDayAs: currentDate)
                                 )
+                                .listRowSeparator(.hidden)
                             }
                             .onDelete { offsets in
                                 deleteScheduledItems(at: offsets, in: groupedItems[date]!)
