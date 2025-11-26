@@ -35,6 +35,13 @@ struct ContentView: View {
         formatter.dateFormat = "MM.dd"
         return formatter
     }()
+    
+    // Date formatter for day of week (e.g. "Monday")
+    private static let dayOfWeekFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "EEEE"
+        return formatter
+    }()
 
     var body: some View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
@@ -172,7 +179,8 @@ struct ContentView: View {
         } else if calendar.isDate(date, inSameDayAs: calendar.date(byAdding: .day, value: 1, to: referenceDate)!) {
             return "\(dateString) (Tomorrow)"
         } else {
-            return dateString
+            let dayOfWeek = Self.dayOfWeekFormatter.string(from: date)
+            return "\(dateString) (\(dayOfWeek))"
         }
     }
 
