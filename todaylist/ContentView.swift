@@ -64,6 +64,7 @@ struct ContentView: View {
                         }) {
                             Label("Add Item", systemImage: "plus")
                         }
+                        .help("Add new task to Inbox (⌘I)")
                         .keyboardShortcut("i", modifiers: .command)
                     }
                 }
@@ -88,7 +89,7 @@ struct ContentView: View {
                                         Image(systemName: "plus")
                                     }
                                     .buttonStyle(.borderless)
-                                    .help("Add task to Today")
+                                    .help("Add task to Today (⌘T)")
                                 }
                             }
                         ) {
