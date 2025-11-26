@@ -173,14 +173,14 @@ struct ContentView: View {
         let dateString = Self.sectionDateFormatter.string(from: date)
         
         if calendar.isDate(date, inSameDayAs: referenceDate) {
-            return "\(dateString) (Today)"
+            return "\(dateString)   Today"
         } else if calendar.isDate(date, inSameDayAs: calendar.date(byAdding: .day, value: -1, to: referenceDate)!) {
-            return "\(dateString) (Yesterday)"
+            return "\(dateString)   Yesterday"
         } else if calendar.isDate(date, inSameDayAs: calendar.date(byAdding: .day, value: 1, to: referenceDate)!) {
-            return "\(dateString) (Tomorrow)"
+            return "\(dateString)   Tomorrow"
         } else {
             let dayOfWeek = Self.dayOfWeekFormatter.string(from: date)
-            return "\(dateString) (\(dayOfWeek))"
+            return "\(dateString)   \(dayOfWeek)"
         }
     }
 
