@@ -187,6 +187,7 @@ struct ContentView: View {
     private func toggleCompletion(for item: Item) {
         withAnimation {
             item.isCompleted.toggle()
+            item.completedAt = item.isCompleted ? Date() : nil
         }
     }
     
