@@ -18,14 +18,6 @@ struct TaskRowView: View {
         return formatter
     }()
     
-    // Display text with optional completion time for today's completed tasks
-    private var displayTitle: String {
-        if isToday && item.isCompleted, let completedAt = item.completedAt {
-            return "\(item.title) · \(Self.timeFormatter.string(from: completedAt))"
-        }
-        return item.title
-    }
-    
     var body: some View {
         HStack(alignment: .top) {
             Image(systemName: item.isCompleted ? "checkmark.circle.fill" : "circle")
@@ -33,27 +25,24 @@ struct TaskRowView: View {
                     onToggleCompletion()
                 }
             
-            TextField("Task Title", text: Binding(
-                get: { displayTitle },
-                set: { newValue in
-                    // Remove the completion time suffix when editing
-                    if isToday && item.isCompleted, let completedAt = item.completedAt {
-                        let suffix = " · \(Self.timeFormatter.string(from: completedAt))"
-                        if newValue.hasSuffix(suffix) {
-                            item.title = String(newValue.dropLast(suffix.count))
-                        } else {
-                            item.title = newValue
-                        }
-                    } else {
-                        item.title = newValue
-                    }
+            VStack(alignment: .leading, spacing: 2) {
+                TextField("Task Title", text: Binding(
+                    get: { item.title },
+                    set: { item.title = $0 }
+                ), axis: .vertical)
+                .textFieldStyle(.plain)
+                .foregroundColor(item.isCompleted ? .secondary.opacity(0.5) : .primary)
+                .lineLimit(nil)
+                .fixedSize(horizontal: false, vertical: true)
+                .multilineTextAlignment(.leading)
+                
+                // Show completion time below title for today's completed tasks
+                if isToday && item.isCompleted, let completedAt = item.completedAt {
+                    Text("· \(Self.timeFormatter.string(from: completedAt))")
+                        .font(.caption)
+                        .foregroundColor(.secondary.opacity(0.6))
                 }
-            ), axis: .vertical)
-            .textFieldStyle(.plain)
-            .foregroundColor(item.isCompleted ? .secondary.opacity(0.5) : .primary)
-            .lineLimit(nil)
-            .fixedSize(horizontal: false, vertical: true)
-            .multilineTextAlignment(.leading)
+            }
             
             Spacer()
             
