@@ -28,6 +28,7 @@ struct ContentView: View {
     @State private var showAddTaskSheet = false
     @State private var taskAssignedDate: Date? = nil
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
+    @State private var showTimelineSheet = false
 
     // Date formatter for section headers (e.g. "11.20")
     private static let sectionDateFormatter: DateFormatter = {
@@ -89,6 +90,14 @@ struct ContentView: View {
                                 Text(formatSectionHeader(date, relativeTo: currentDate))
                                 if Calendar.current.isDate(date, inSameDayAs: currentDate) {
                                     Spacer()
+                                    Button(action: {
+                                        showTimelineSheet = true
+                                    }) {
+                                        Image(systemName: "clock")
+                                    }
+                                    .buttonStyle(.borderless)
+                                    .help("View today's timeline")
+                                    
                                     Button(action: {
                                         taskAssignedDate = currentDate
                                         showAddTaskSheet = true
@@ -153,6 +162,9 @@ struct ContentView: View {
         }
         .sheet(isPresented: $showAddTaskSheet) {
             AddTaskView(assignedDate: taskAssignedDate)
+        }
+        .sheet(isPresented: $showTimelineSheet) {
+            TodayTimelineView(currentDate: currentDate)
         }
     }
     

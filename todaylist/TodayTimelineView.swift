@@ -1,0 +1,123 @@
+//
+//  TodayTimelineView.swift
+//  todaylist
+//
+//  Created by 尹星 on 2025/12/9.
+//
+
+import SwiftUI
+import SwiftData
+
+struct TodayTimelineView: View {
+    @Environment(\.dismiss) private var dismiss
+    @Query private var allItems: [Item]
+    
+    private let currentDate: Date
+    
+    // Time formatter for completion time (e.g. "20:12")
+    private static let timeFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm"
+        return formatter
+    }()
+    
+    init(currentDate: Date) {
+        self.currentDate = currentDate
+    }
+    
+    // Filter and sort today's completed items by completion time
+    private var todayCompletedItems: [Item] {
+        let calendar = Calendar.current
+        return allItems
+            .filter { item in
+                guard item.isCompleted,
+                      let assignedDate = item.assignedDate,
+                      item.completedAt != nil else { return false }
+                return calendar.isDate(assignedDate, inSameDayAs: currentDate)
+            }
+            .sorted { ($0.completedAt ?? Date.distantPast) < ($1.completedAt ?? Date.distantPast) }
+    }
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            // Header
+            HStack {
+                Text("Today's Timeline")
+                    .font(.headline)
+                Spacer()
+                Button(action: { dismiss() }) {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundColor(.secondary)
+                }
+                .buttonStyle(.plain)
+            }
+            .padding()
+            
+            Divider()
+            
+            // Timeline content
+            if todayCompletedItems.isEmpty {
+                ContentUnavailableView(
+                    "No completed tasks",
+                    systemImage: "checkmark.circle",
+                    description: Text("Complete some tasks to see your timeline.")
+                )
+                .frame(maxHeight: .infinity)
+            } else {
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 0) {
+                        ForEach(todayCompletedItems) { item in
+                            TimelineItemRow(item: item, timeFormatter: Self.timeFormatter)
+                        }
+                    }
+                    .padding(.vertical, 8)
+                }
+            }
+        }
+        .frame(width: 350, height: 450)
+    }
+}
+
+struct TimelineItemRow: View {
+    let item: Item
+    let timeFormatter: DateFormatter
+    
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            // Timeline indicator
+            VStack(spacing: 0) {
+                Circle()
+                    .fill(Color.accentColor)
+                    .frame(width: 10, height: 10)
+                Rectangle()
+                    .fill(Color.accentColor.opacity(0.3))
+                    .frame(width: 2)
+            }
+            
+            // Content
+            VStack(alignment: .leading, spacing: 4) {
+                // Time
+                if let completedAt = item.completedAt {
+                    Text(timeFormatter.string(from: completedAt))
+                        .font(.caption)
+                        .fontWeight(.medium)
+                        .foregroundColor(.accentColor)
+                }
+                
+                // Task title
+                Text(item.title)
+                    .font(.body)
+                    .foregroundColor(.primary)
+            }
+            .padding(.bottom, 16)
+            
+            Spacer()
+        }
+        .padding(.horizontal, 16)
+    }
+}
+
+#Preview {
+    TodayTimelineView(currentDate: Date())
+        .modelContainer(for: Item.self, inMemory: true)
+}
