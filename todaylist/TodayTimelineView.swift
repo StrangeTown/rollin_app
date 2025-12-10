@@ -7,6 +7,7 @@
 
 import SwiftUI
 import SwiftData
+import AppKit
 
 struct TodayTimelineView: View {
     @Environment(\.dismiss) private var dismiss
@@ -38,6 +39,36 @@ struct TodayTimelineView: View {
             .sorted { ($0.completedAt ?? Date.distantPast) < ($1.completedAt ?? Date.distantPast) }
     }
     
+    // Generate text for copying
+    private var copyText: String {
+        todayCompletedItems.map { item in
+            if let completedAt = item.completedAt {
+                return "\(Self.timeFormatter.string(from: completedAt)) \(item.title)"
+            }
+            return item.title
+        }.joined(separator: "\n")
+    }
+    
+    @State private var showCopiedFeedback = false
+    
+    private func copyToClipboard() {
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString(copyText, forType: .string)
+        
+        // Show feedback
+        withAnimation {
+            showCopiedFeedback = true
+        }
+        
+        // Hide feedback after delay
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+            withAnimation {
+                showCopiedFeedback = false
+            }
+        }
+    }
+    
     var body: some View {
         VStack(spacing: 0) {
             // Header
@@ -45,6 +76,23 @@ struct TodayTimelineView: View {
                 Text("Today's Timeline")
                     .font(.headline)
                 Spacer()
+                
+                if showCopiedFeedback {
+                    Text("Copied!")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .transition(.opacity)
+                }
+                
+                if !todayCompletedItems.isEmpty {
+                    Button(action: copyToClipboard) {
+                        Image(systemName: showCopiedFeedback ? "checkmark" : "doc.on.doc")
+                            .foregroundColor(showCopiedFeedback ? .green : nil)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Copy all items")
+                }
+                
                 Button(action: { dismiss() }) {
                     Image(systemName: "xmark.circle.fill")
                         .foregroundColor(.secondary)
