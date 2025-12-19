@@ -25,6 +25,15 @@ struct ContentView: View {
     @Query(filter: #Predicate<Item> { $0.assignedDate != nil }, sort: \Item.assignedDate, order: .reverse)
     private var scheduledItems: [Item]
     
+    // Fetch root contexts
+    @Query(filter: #Predicate<ContextNode> { $0.parent == nil }, sort: \ContextNode.name)
+    private var rootContexts: [ContextNode]
+    
+    @State private var selectedContext: ContextNode?
+    @State private var showAddContextAlert = false
+    @State private var newContextName = ""
+    @State private var contextParentForAdd: ContextNode?
+    
     @State private var showAddTaskSheet = false
     @State private var taskAssignedDate: Date? = nil
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
@@ -48,19 +57,8 @@ struct ContentView: View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
             // MARK: - Sidebar (Inbox)
             List {
-                Section(header: Text("Inbox")) {
-                    ForEach(inboxItems) { item in
-                        TaskRowView(
-                            item: item,
-                            onToggleCompletion: { toggleCompletion(for: item) },
-                            onMove: { moveToToday(item) },
-                            onDelete: { deleteItem(item) },
-                            isScheduled: false,
-                            isToday: false
-                        )
-                    }
-                    .onDelete(perform: deleteInboxItems)
-                }
+                inboxSection
+                contextSection
             }
             .navigationSplitViewColumnWidth(min: 250, ideal: 300)
             .toolbar {
@@ -78,8 +76,11 @@ struct ContentView: View {
                 }
             }
         } detail: {
-            // MARK: - Detail View (Scheduled Tasks)
-            List {
+            if let context = selectedContext {
+                ContextDetailView(context: context)
+            } else {
+                // MARK: - Detail View (Scheduled Tasks)
+                List {
                 if scheduledItems.isEmpty {
                     ContentUnavailableView("No scheduled tasks", systemImage: "calendar", description: Text("Move tasks from Inbox to plan your day."))
                 } else {
@@ -126,6 +127,14 @@ struct ContentView: View {
                         }
                     }
                 }
+            }
+            }
+        }
+        .alert("New Context", isPresented: $showAddContextAlert) {
+            TextField("Name", text: $newContextName)
+            Button("Cancel", role: .cancel) { }
+            Button("Add") {
+                addContext(name: newContextName, parent: contextParentForAdd)
             }
         }
         // MARK: - Lifecycle & Events
@@ -253,6 +262,144 @@ struct ContentView: View {
             for item in overdueItems {
                 item.assignedDate = nil
             }
+        }
+    }
+    
+    func addContext(name: String, parent: ContextNode?) {
+        let context = ContextNode(name: name, parent: parent)
+        modelContext.insert(context)
+    }
+    
+    func deleteContext(_ context: ContextNode) {
+        modelContext.delete(context)
+        if selectedContext == context {
+            selectedContext = nil
+        }
+    }
+    
+    // MARK: - View Builders
+    
+    @ViewBuilder
+    private var inboxSection: some View {
+        Section(header: Text("Inbox")) {
+            ForEach(inboxItems) { item in
+                TaskRowView(
+                    item: item,
+                    onToggleCompletion: { toggleCompletion(for: item) },
+                    onMove: { moveToToday(item) },
+                    onDelete: { deleteItem(item) },
+                    isScheduled: false,
+                    isToday: false
+                )
+            }
+            .onDelete(perform: deleteInboxItems)
+        }
+    }
+    
+    @ViewBuilder
+    private var contextSection: some View {
+        Section(header: contextSectionHeader) {
+            OutlineGroup(rootContexts, children: \.children) { node in
+                contextRow(for: node)
+            }
+        }
+    }
+
+    private var contextSectionHeader: some View {
+        HStack {
+            Text("Contexts")
+            Spacer()
+            Button {
+                contextParentForAdd = nil
+                newContextName = ""
+                showAddContextAlert = true
+            } label: {
+                Image(systemName: "plus")
+            }
+            .buttonStyle(.borderless)
+        }
+    }
+
+    private func contextRow(for node: ContextNode) -> some View {
+        HStack {
+            Text(node.name)
+            Spacer()
+            if selectedContext == node {
+                Image(systemName: "checkmark")
+                    .foregroundStyle(Color.accentColor)
+            }
+        }
+        .contentShape(Rectangle())
+        .onTapGesture {
+            if selectedContext == node {
+                selectedContext = nil
+            } else {
+                selectedContext = node
+            }
+        }
+        .contextMenu {
+            Button("Add Child Context") {
+                contextParentForAdd = node
+                newContextName = ""
+                showAddContextAlert = true
+            }
+            Button("Delete", role: .destructive) {
+                deleteContext(node)
+            }
+        }
+    }
+}
+
+struct ContextDetailView: View {
+    let context: ContextNode
+    @Query var items: [Item]
+    @Environment(\.modelContext) private var modelContext
+    
+    init(context: ContextNode) {
+        self.context = context
+        let targetId = context.id
+        // Filter items by context ID
+        _items = Query(filter: #Predicate<Item> { item in
+            item.context?.id == targetId
+        }, sort: \Item.timestamp, order: .reverse)
+    }
+    
+    var body: some View {
+        List {
+            if items.isEmpty {
+                ContentUnavailableView("No items in context", systemImage: "folder", description: Text("Add items to this context."))
+            } else {
+                ForEach(items) { item in
+                    TaskRowView(
+                        item: item,
+                        onToggleCompletion: { toggleCompletion(for: item) },
+                        onMove: { moveToToday(item) },
+                        onDelete: { deleteItem(item) },
+                        isScheduled: item.assignedDate != nil,
+                        isToday: false
+                    )
+                }
+            }
+        }
+        .navigationTitle(context.name)
+    }
+    
+    private func toggleCompletion(for item: Item) {
+        withAnimation {
+            item.isCompleted.toggle()
+            item.completedAt = item.isCompleted ? Date() : nil
+        }
+    }
+    
+    private func moveToToday(_ item: Item) {
+        withAnimation {
+            item.assignedDate = Date()
+        }
+    }
+    
+    private func deleteItem(_ item: Item) {
+        withAnimation {
+            modelContext.delete(item)
         }
     }
 }

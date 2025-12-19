@@ -36,6 +36,12 @@ struct TaskRowView: View {
                 .fixedSize(horizontal: false, vertical: true)
                 .multilineTextAlignment(.leading)
                 
+                if let context = item.context {
+                    Text(context.fullPath)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                
                 // Show completion time below title for today's completed tasks
                 if isToday && item.isCompleted, let completedAt = item.completedAt {
                     Text("· \(Self.timeFormatter.string(from: completedAt))")

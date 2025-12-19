@@ -8,6 +8,7 @@ struct AddTaskView: View {
     var assignedDate: Date? = nil
     
     @State private var title = ""
+    @State private var selectedContext: ContextNode?
     @FocusState private var isFocused: Bool
     
     var body: some View {
@@ -35,6 +36,34 @@ struct AddTaskView: View {
                     .onSubmit {
                         addTask()
                     }
+                
+                HStack {
+                    Text("Context:")
+                        .foregroundStyle(.secondary)
+                    NavigationLink {
+                        ContextPickerView(selectedContext: $selectedContext)
+                    } label: {
+                        HStack {
+                            if let context = selectedContext {
+                                Text(context.fullPath)
+                                    .lineLimit(1)
+                                    .truncationMode(.middle)
+                            } else {
+                                Text("None")
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        .padding(4)
+                        .background(Color(nsColor: .controlBackgroundColor))
+                        .clipShape(RoundedRectangle(cornerRadius: 4))
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(.top, 8)
             }
             .padding()
             .navigationTitle(assignedDate != nil ? "Add to Today" : "New Task")
@@ -51,18 +80,21 @@ struct AddTaskView: View {
                     .disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
             }
-            .frame(width: 400, height: assignedDate != nil ? 130 : 100)
+            .frame(width: 400)
+            .frame(minHeight: assignedDate != nil ? 200 : 170)
+            .fixedSize(horizontal: true, vertical: false)
             .onAppear {
                 isFocused = true
             }
         }
+        .frame(height: 400) // Give the window enough room for navigation
     }
     
     private func addTask() {
         let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedTitle.isEmpty else { return }
         
-        let newItem = Item(title: trimmedTitle, assignedDate: assignedDate)
+        let newItem = Item(title: trimmedTitle, assignedDate: assignedDate, context: selectedContext)
         modelContext.insert(newItem)
         dismiss()
     }
