@@ -9,8 +9,6 @@ struct TaskRowView: View {
     let isScheduled: Bool
     let isToday: Bool
     
-    @FocusState private var isFocused: Bool
-    
     // Time formatter for completion time (e.g. "20:12")
     private static let timeFormatter: DateFormatter = {
         let formatter = DateFormatter()
@@ -26,15 +24,12 @@ struct TaskRowView: View {
                 }
             
             VStack(alignment: .leading, spacing: 2) {
-                TextField("Task Title", text: Binding(
-                    get: { item.title },
-                    set: { item.title = $0 }
-                ), axis: .vertical)
-                .textFieldStyle(.plain)
-                .foregroundColor(item.isCompleted ? .secondary.opacity(0.5) : .primary)
-                .lineLimit(nil)
-                .fixedSize(horizontal: false, vertical: true)
-                .multilineTextAlignment(.leading)
+                Text(item.title)
+                    .foregroundStyle(item.isCompleted ? Color.secondary.opacity(0.5) : Color.primary)
+                    .strikethrough(item.isCompleted)
+                    .lineLimit(nil)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .multilineTextAlignment(.leading)
                 
                 if let context = item.context {
                     Text(context.fullPath)
