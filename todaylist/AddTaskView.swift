@@ -9,85 +9,85 @@ struct AddTaskView: View {
     
     @State private var title = ""
     @State private var selectedContext: ContextNode?
+    @State private var showContextPicker = false
     @FocusState private var isFocused: Bool
     
     var body: some View {
         NavigationStack {
-            VStack(alignment: .leading) {
-                if assignedDate != nil {
-                    Label("For Today", systemImage: "sun.max.fill")
-                        .font(.caption)
-                        .foregroundStyle(.orange)
-                        .padding(.leading, 4)
-                        .padding(.bottom, 4)
-                }
-                
+            VStack(alignment: .leading, spacing: 20) {
+                // 1. Large, Clean Input
                 TextField(assignedDate != nil ? "Add a task for today..." : "What needs to be done?", text: $title)
                     .textFieldStyle(.plain)
-                    .font(.title3)
-                    .padding()
-                    .background(Color(nsColor: .textBackgroundColor))
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 8)
-                            .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
-                    )
+                    .font(.system(size: 24, weight: .medium))
                     .focused($isFocused)
-                    .onSubmit {
-                        addTask()
-                    }
+                    .onSubmit { addTask() }
+                    .padding(.horizontal, 2)
                 
-                HStack {
-                    Text("Context:")
-                        .foregroundStyle(.secondary)
-                    NavigationLink {
-                        ContextPickerView(selectedContext: $selectedContext)
+                // 2. Metadata Row (Pills)
+                HStack(spacing: 12) {
+                    // Context Pill
+                    Button {
+                        showContextPicker = true
                     } label: {
-                        HStack {
-                            if let context = selectedContext {
-                                Text(context.fullPath)
-                                    .lineLimit(1)
-                                    .truncationMode(.middle)
-                            } else {
-                                Text("None")
-                                    .foregroundStyle(.secondary)
-                            }
-                            Spacer()
-                            Image(systemName: "chevron.right")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
+                        HStack(spacing: 6) {
+                            Image(systemName: "folder")
+                                .font(.subheadline)
+                            Text(selectedContext?.name ?? "Inbox")
+                                .font(.subheadline)
                         }
-                        .padding(4)
-                        .background(Color(nsColor: .controlBackgroundColor))
-                        .clipShape(RoundedRectangle(cornerRadius: 4))
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(Color.gray.opacity(0.15))
+                        .clipShape(Capsule())
+                        .foregroundStyle(.primary)
                     }
                     .buttonStyle(.plain)
-                }
-                .padding(.top, 8)
-            }
-            .padding()
-            .navigationTitle(assignedDate != nil ? "Add to Today" : "New Task")
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
-                        dismiss()
+                    .popover(isPresented: $showContextPicker, arrowEdge: .bottom) {
+                        ContextPickerView(selectedContext: $selectedContext)
+                    }
+                    
+                    // Date Pill (if applicable)
+                    if assignedDate != nil {
+                        HStack(spacing: 6) {
+                            Image(systemName: "calendar")
+                            Text("Today")
+                        }
+                        .font(.subheadline)
+                        .foregroundStyle(.orange)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(Color.orange.opacity(0.1))
+                        .clipShape(Capsule())
                     }
                 }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Add") {
-                        addTask()
-                    }
-                    .disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                
+                Spacer()
+                
+                // 3. Bottom Action Bar
+                HStack {
+                    Button("Cancel") { dismiss() }
+                        .keyboardShortcut(.cancelAction)
+                        .controlSize(.large)
+                    
+                    Spacer()
+                    
+                    Button("Add Task") { addTask() }
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.large)
+                        .disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                        .keyboardShortcut(.defaultAction)
                 }
             }
-            .frame(width: 400)
-            .frame(minHeight: assignedDate != nil ? 200 : 170)
-            .fixedSize(horizontal: true, vertical: false)
+            .padding(24)
+            .frame(width: 500, height: 220)
+            .background(.background)
             .onAppear {
                 isFocused = true
             }
+            .navigationTitle("") // Hide default title
+            .toolbar(.hidden, for: .windowToolbar) // Hide toolbar to use custom actions
         }
-        .frame(height: 400) // Give the window enough room for navigation
+        .frame(height: 220) // Compact height since we use popover now
     }
     
     private func addTask() {

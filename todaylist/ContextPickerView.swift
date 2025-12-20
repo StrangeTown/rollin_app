@@ -14,10 +14,17 @@ struct ContextPickerView: View {
     private var allContexts: [ContextNode]
     
     @Binding var selectedContext: ContextNode?
+    @State private var searchText = ""
     
-    private var flatContexts: [FlatContextNode] {
-        let roots = allContexts.filter { $0.parent == nil }
-        return flatten(roots)
+    private var displayedContexts: [FlatContextNode] {
+        if searchText.isEmpty {
+            let roots = allContexts.filter { $0.parent == nil }
+            return flatten(roots)
+        } else {
+            return allContexts
+                .filter { $0.name.localizedCaseInsensitiveContains(searchText) }
+                .map { FlatContextNode(node: $0, level: 0) }
+        }
     }
     
     private func flatten(_ nodes: [ContextNode], level: Int = 0) -> [FlatContextNode] {
@@ -45,32 +52,66 @@ struct ContextPickerView: View {
                 dismiss()
             } label: {
                 HStack {
+                    Image(systemName: "xmark.circle")
+                        .foregroundStyle(.secondary)
                     Text("None")
                     Spacer()
                     if selectedContext == nil {
                         Image(systemName: "checkmark")
+                            .foregroundStyle(Color.accentColor)
                     }
                 }
             }
-            .foregroundStyle(.primary)
+            .buttonStyle(.plain)
+            .padding(.vertical, 4)
             
-            ForEach(flatContexts) { item in
-                Button {
-                    selectedContext = item.node
-                    dismiss()
-                } label: {
-                    HStack {
-                        Text(item.node.name)
-                            .padding(.leading, CGFloat(item.level * 20))
-                        Spacer()
-                        if selectedContext == item.node {
-                            Image(systemName: "checkmark")
-                        }
+            Divider()
+            
+            ForEach(displayedContexts) { item in
+                ContextPickerRow(item: item, isSelected: selectedContext == item.node)
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        selectedContext = item.node
+                        dismiss()
                     }
-                }
-                .foregroundStyle(.primary)
             }
         }
-        .navigationTitle("Select Context")
+        .searchable(text: $searchText, placement: .sidebar, prompt: "Search contexts...")
+        .frame(minWidth: 250, minHeight: 300)
+    }
+}
+
+struct ContextPickerRow: View {
+    let item: ContextPickerView.FlatContextNode
+    let isSelected: Bool
+    
+    var body: some View {
+        HStack(spacing: 8) {
+            // Indentation Guide Lines
+            HStack(spacing: 0) {
+                ForEach(0..<item.level, id: \.self) { _ in
+                    Rectangle()
+                        .fill(Color.secondary.opacity(0.2))
+                        .frame(width: 1)
+                        .frame(maxHeight: .infinity)
+                        .padding(.horizontal, 12)
+                }
+            }
+            
+            Image(systemName: (item.node.children?.isEmpty == false) ? "folder" : "tag")
+                .foregroundStyle(.secondary)
+            
+            Text(item.node.name)
+                .foregroundStyle(.primary)
+            
+            Spacer()
+            
+            if isSelected {
+                Image(systemName: "checkmark")
+                    .foregroundStyle(Color.accentColor)
+                    .fontWeight(.bold)
+            }
+        }
+        .padding(.vertical, 4)
     }
 }
