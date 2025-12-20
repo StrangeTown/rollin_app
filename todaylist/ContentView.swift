@@ -326,45 +326,69 @@ struct ContentView: View {
     }
 
     private func contextRow(for node: ContextNode) -> some View {
-        HStack {
-            Image(systemName: "folder")
-                .foregroundStyle(selectedContext == node ? Color.accentColor : .secondary)
-            
-            Text(node.name)
-                .fontWeight(selectedContext == node ? .semibold : .regular)
-                .foregroundStyle(selectedContext == node ? Color.accentColor : .primary)
-            
-            Spacer()
-            
-            let count = node.items?.count ?? 0
-            if count > 0 {
-                Text("\(count)")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(Color.secondary.opacity(0.1))
-                    .clipShape(Capsule())
-            }
-        }
-        .padding(.vertical, 2)
-        .contentShape(Rectangle())
-        .onTapGesture {
-            if selectedContext == node {
-                selectedContext = nil
-            } else {
-                selectedContext = node
-            }
-        }
-        .contextMenu {
-            Button("Add Child Context") {
+        ContextRowView(
+            node: node,
+            isSelected: selectedContext == node,
+            onSelect: {
+                if selectedContext == node {
+                    selectedContext = nil
+                } else {
+                    selectedContext = node
+                }
+            },
+            onAddChild: {
                 contextParentForAdd = node
                 newContextName = ""
                 showAddContextAlert = true
-            }
-            Button("Delete", role: .destructive) {
+            },
+            onDelete: {
                 deleteContext(node)
             }
+        )
+    }
+}
+
+struct ContextRowView: View {
+    let node: ContextNode
+    let isSelected: Bool
+    let onSelect: () -> Void
+    let onAddChild: () -> Void
+    let onDelete: () -> Void
+    
+    @State private var isHovering = false
+    
+    var body: some View {
+        HStack {
+            Image(systemName: isSelected ? "folder.fill" : "folder")
+                .foregroundStyle(isSelected ? .white : .secondary)
+            
+            Text(node.name)
+                .foregroundStyle(isSelected ? .white : .primary)
+            
+            Spacer()
+            
+            if let items = node.items, !items.isEmpty {
+                Text("\(items.count)")
+                    .font(.caption)
+                    .foregroundStyle(isSelected ? .white.opacity(0.9) : .secondary)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(isSelected ? .white.opacity(0.25) : Color.gray.opacity(0.1))
+                    .clipShape(Capsule())
+            }
+        }
+        .padding(.vertical, 6)
+        .padding(.horizontal, 8)
+        .background(
+            RoundedRectangle(cornerRadius: 6)
+                .fill(isSelected ? Color.accentColor : (isHovering ? Color.primary.opacity(0.05) : Color.clear))
+        )
+        .contentShape(Rectangle())
+        .onTapGesture(perform: onSelect)
+        .onHover { isHovering = $0 }
+        .contextMenu {
+            Button("Add Child Context", action: onAddChild)
+            Button("Delete", role: .destructive, action: onDelete)
         }
     }
 }
