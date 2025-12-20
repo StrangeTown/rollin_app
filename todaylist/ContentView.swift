@@ -308,6 +308,9 @@ struct ContentView: View {
     private var contextSectionHeader: some View {
         HStack {
             Text("Contexts")
+                .font(.subheadline)
+                .fontWeight(.semibold)
+                .foregroundStyle(.secondary)
             Spacer()
             Button {
                 contextParentForAdd = nil
@@ -317,18 +320,34 @@ struct ContentView: View {
                 Image(systemName: "plus")
             }
             .buttonStyle(.borderless)
+            .foregroundStyle(.secondary)
         }
+        .padding(.bottom, 4)
     }
 
     private func contextRow(for node: ContextNode) -> some View {
         HStack {
+            Image(systemName: "folder")
+                .foregroundStyle(selectedContext == node ? Color.accentColor : .secondary)
+            
             Text(node.name)
+                .fontWeight(selectedContext == node ? .semibold : .regular)
+                .foregroundStyle(selectedContext == node ? Color.accentColor : .primary)
+            
             Spacer()
-            if selectedContext == node {
-                Image(systemName: "checkmark")
-                    .foregroundStyle(Color.accentColor)
+            
+            let count = node.items?.count ?? 0
+            if count > 0 {
+                Text("\(count)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(Color.secondary.opacity(0.1))
+                    .clipShape(Capsule())
             }
         }
+        .padding(.vertical, 2)
         .contentShape(Rectangle())
         .onTapGesture {
             if selectedContext == node {
