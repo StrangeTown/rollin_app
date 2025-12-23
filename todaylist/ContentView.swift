@@ -63,20 +63,6 @@ struct ContentView: View {
                 contextSection
             }
             .navigationSplitViewColumnWidth(min: 250, ideal: 300)
-            .toolbar {
-                ToolbarItem {
-                    if columnVisibility != .detailOnly {
-                        Button(action: { 
-                            taskAssignedDate = nil
-                            showAddTaskSheet = true 
-                        }) {
-                            Label("Add Item", systemImage: "plus")
-                        }
-                        .help("Add new task to Inbox (⌘I)")
-                        .keyboardShortcut("i", modifiers: .command)
-                    }
-                }
-            }
         } detail: {
             if let context = selectedContext {
                 ContextDetailView(context: context, taskToEdit: $taskToEdit)
@@ -289,7 +275,7 @@ struct ContentView: View {
     
     @ViewBuilder
     private var inboxSection: some View {
-        Section(header: Text("Inbox")) {
+        Section(header: inboxSectionHeader) {
             ForEach(inboxItems) { item in
                 TaskRowView(
                     item: item,
@@ -305,6 +291,28 @@ struct ContentView: View {
             }
             .onDelete(perform: deleteInboxItems)
         }
+    }
+    
+    private var inboxSectionHeader: some View {
+        HStack {
+            Text("Inbox")
+                .font(.subheadline)
+                .fontWeight(.semibold)
+                .foregroundStyle(.secondary)
+            Spacer()
+            Button {
+                taskAssignedDate = nil
+                showAddTaskSheet = true
+            } label: {
+                Image(systemName: "plus")
+            }
+            .buttonStyle(.borderless)
+            .foregroundStyle(.secondary)
+            .padding(.trailing, 8)
+            .help("Add new task to Inbox (⌘I)")
+            .keyboardShortcut("i", modifiers: .command)
+        }
+        .padding(.bottom, 4)
     }
     
     @ViewBuilder
@@ -339,6 +347,8 @@ struct ContentView: View {
             }
             .buttonStyle(.borderless)
             .foregroundStyle(.secondary)
+            .padding(.trailing, 8)
+            .help("Add new context")
         }
         .padding(.bottom, 4)
     }
