@@ -98,8 +98,9 @@ struct ContextPickerRow: View {
                 }
             }
             
-            Image(systemName: (item.node.children?.isEmpty == false) ? "folder" : "tag")
+            Image(systemName: (item.node.children?.isEmpty == false) ? "circle.fill" : "circle")
                 .foregroundStyle(.secondary)
+                .font(.system(size: 8))
             
             Text(item.node.name)
                 .foregroundStyle(.primary)

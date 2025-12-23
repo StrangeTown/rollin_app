@@ -310,8 +310,15 @@ struct ContentView: View {
     @ViewBuilder
     private var contextSection: some View {
         Section(header: contextSectionHeader) {
-            OutlineGroup(rootContexts, children: \.children) { node in
-                contextRow(for: node)
+            ForEach(rootContexts) { node in
+                ContextTreeRow(
+                    node: node,
+                    selectedContext: $selectedContext,
+                    contextParentForAdd: $contextParentForAdd,
+                    newContextName: $newContextName,
+                    showAddContextAlert: $showAddContextAlert,
+                    onDelete: deleteContext
+                )
             }
         }
     }
@@ -336,55 +343,66 @@ struct ContentView: View {
         .padding(.bottom, 4)
     }
 
-    private func contextRow(for node: ContextNode) -> some View {
-        ContextRowView(
-            node: node,
-            isSelected: selectedContext == node,
-            onSelect: {
-                if selectedContext == node {
-                    selectedContext = nil
-                } else {
-                    selectedContext = node
-                }
-            },
-            onAddChild: {
-                contextParentForAdd = node
-                newContextName = ""
-                showAddContextAlert = true
-            },
-            onDelete: {
-                deleteContext(node)
-            }
-        )
-    }
 }
 
-struct ContextRowView: View {
+// MARK: - Context Tree Row with collapsible children
+struct ContextTreeRow: View {
     let node: ContextNode
-    let isSelected: Bool
-    let onSelect: () -> Void
-    let onAddChild: () -> Void
-    let onDelete: () -> Void
+    @Binding var selectedContext: ContextNode?
+    @Binding var contextParentForAdd: ContextNode?
+    @Binding var newContextName: String
+    @Binding var showAddContextAlert: Bool
+    let onDelete: (ContextNode) -> Void
     
     @State private var isHovering = false
     
+    private var hasChildren: Bool {
+        node.children?.isEmpty == false
+    }
+    
     var body: some View {
+        if hasChildren {
+            // 有子节点：使用 DisclosureGroup
+            DisclosureGroup {
+                if let children = node.children {
+                    ForEach(children.sorted(by: { $0.name < $1.name }), id: \.id) { childNode in
+                        ContextTreeRow(
+                            node: childNode,
+                            selectedContext: $selectedContext,
+                            contextParentForAdd: $contextParentForAdd,
+                            newContextName: $newContextName,
+                            showAddContextAlert: $showAddContextAlert,
+                            onDelete: onDelete
+                        )
+                    }
+                }
+            } label: {
+                nodeContent
+            }
+        } else {
+            // 无子节点：直接显示内容
+            nodeContent
+        }
+    }
+    
+    private var nodeContent: some View {
         HStack {
-            Image(systemName: isSelected ? "folder.fill" : "folder")
-                .foregroundStyle(isSelected ? .white : .secondary)
+            Image(systemName: hasChildren ? "circle.fill" : "circle")
+                .foregroundStyle(selectedContext == node ? .white : .secondary)
+                .font(.system(size: 8))
             
             Text(node.name)
-                .foregroundStyle(isSelected ? .white : .primary)
+                .foregroundStyle(selectedContext == node ? .white : .primary)
             
             Spacer()
             
             if let items = node.items, !items.isEmpty {
                 Text("\(items.count)")
                     .font(.caption)
-                    .foregroundStyle(isSelected ? .white.opacity(0.9) : .secondary)
+                    .foregroundStyle(selectedContext == node ? .white.opacity(0.9) : .secondary)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
-                    .background(isSelected ? .white.opacity(0.25) : Color.gray.opacity(0.1))
+                    .background(selectedContext == node ? .white.opacity(0.25) : Color.gray.opacity(0.1))
                     .clipShape(Capsule())
             }
         }
@@ -392,14 +410,26 @@ struct ContextRowView: View {
         .padding(.horizontal, 8)
         .background(
             RoundedRectangle(cornerRadius: 6)
-                .fill(isSelected ? Color.accentColor : (isHovering ? Color.primary.opacity(0.05) : Color.clear))
+                .fill(selectedContext == node ? Color.accentColor : (isHovering ? Color.primary.opacity(0.05) : Color.clear))
         )
         .contentShape(Rectangle())
-        .onTapGesture(perform: onSelect)
+        .onTapGesture {
+            if selectedContext == node {
+                selectedContext = nil
+            } else {
+                selectedContext = node
+            }
+        }
         .onHover { isHovering = $0 }
         .contextMenu {
-            Button("Add Child Context", action: onAddChild)
-            Button("Delete", role: .destructive, action: onDelete)
+            Button("Add Child Context") {
+                contextParentForAdd = node
+                newContextName = ""
+                showAddContextAlert = true
+            }
+            Button("Delete", role: .destructive) {
+                onDelete(node)
+            }
         }
     }
 }
@@ -423,7 +453,7 @@ struct ContextDetailView: View {
     var body: some View {
         List {
             if items.isEmpty {
-                ContentUnavailableView("No items in context", systemImage: "folder", description: Text("Add items to this context."))
+                ContentUnavailableView("No items in context", systemImage: "circle.dotted", description: Text("Add items to this context."))
             } else {
                 ForEach(items) { item in
                     TaskRowView(
