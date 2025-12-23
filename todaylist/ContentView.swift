@@ -38,6 +38,8 @@ struct ContentView: View {
     @State private var taskAssignedDate: Date? = nil
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
     @State private var showTimelineSheet = false
+    
+    @State private var taskToEdit: Item?
 
     // Date formatter for section headers (e.g. "11.20")
     private static let sectionDateFormatter: DateFormatter = {
@@ -77,7 +79,7 @@ struct ContentView: View {
             }
         } detail: {
             if let context = selectedContext {
-                ContextDetailView(context: context)
+                ContextDetailView(context: context, taskToEdit: $taskToEdit)
             } else {
                 // MARK: - Detail View (Scheduled Tasks)
                 List {
@@ -116,6 +118,9 @@ struct ContentView: View {
                                     onToggleCompletion: { toggleCompletion(for: item) },
                                     onMove: { removeFromToday(item) },
                                     onDelete: { deleteItem(item) },
+                                    onEdit: {
+                                        taskToEdit = item
+                                    },
                                     isScheduled: true,
                                     isToday: Calendar.current.isDate(date, inSameDayAs: currentDate)
                                 )
@@ -128,7 +133,7 @@ struct ContentView: View {
                     }
                 }
             }
-            }
+        }
         }
         .alert("New Context", isPresented: $showAddContextAlert) {
             TextField("Name", text: $newContextName)
@@ -174,6 +179,9 @@ struct ContentView: View {
         }
         .sheet(isPresented: $showTimelineSheet) {
             TodayTimelineView(currentDate: currentDate)
+        }
+        .sheet(item: $taskToEdit) { item in
+            EditTaskView(item: item)
         }
     }
     
@@ -288,6 +296,9 @@ struct ContentView: View {
                     onToggleCompletion: { toggleCompletion(for: item) },
                     onMove: { moveToToday(item) },
                     onDelete: { deleteItem(item) },
+                    onEdit: {
+                        taskToEdit = item
+                    },
                     isScheduled: false,
                     isToday: false
                 )
@@ -397,9 +408,11 @@ struct ContextDetailView: View {
     let context: ContextNode
     @Query var items: [Item]
     @Environment(\.modelContext) private var modelContext
+    @Binding var taskToEdit: Item?
     
-    init(context: ContextNode) {
+    init(context: ContextNode, taskToEdit: Binding<Item?>) {
         self.context = context
+        _taskToEdit = taskToEdit
         let targetId = context.id
         // Filter items by context ID
         _items = Query(filter: #Predicate<Item> { item in
@@ -418,6 +431,9 @@ struct ContextDetailView: View {
                         onToggleCompletion: { toggleCompletion(for: item) },
                         onMove: { moveToToday(item) },
                         onDelete: { deleteItem(item) },
+                        onEdit: {
+                            taskToEdit = item
+                        },
                         isScheduled: item.assignedDate != nil,
                         isToday: false
                     )
@@ -451,3 +467,4 @@ struct ContextDetailView: View {
     ContentView()
         .modelContainer(for: Item.self, inMemory: true)
 }
+

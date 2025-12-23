@@ -6,6 +6,7 @@ struct TaskRowView: View {
     let onToggleCompletion: () -> Void
     let onMove: () -> Void
     let onDelete: () -> Void
+    let onEdit: () -> Void
     let isScheduled: Bool
     let isToday: Bool
     
@@ -58,6 +59,10 @@ struct TaskRowView: View {
             }
         }
         .contextMenu {
+            Button(action: onEdit) {
+                Label("Edit", systemImage: "pencil")
+            }
+            
             if !isScheduled || isToday {
                 Button(action: onMove) {
                     Label(isScheduled ? "Move to Inbox" : "Move to Today", 
