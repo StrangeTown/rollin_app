@@ -222,13 +222,14 @@ struct ContentView: View {
     @ViewBuilder
     private func sectionHeaderView(for date: Date) -> some View {
         let header = formatSectionHeader(date, relativeTo: currentDate)
-        HStack(spacing: 6) {
+        HStack(spacing: 8) {
             Text(header.dateString)
                 .font(Theme.Fonts.sectionHeader)
+                .monospacedDigit()
             if header.isToday {
                 Circle()
                     .fill(Theme.Colors.todayAccent)
-                    .frame(width: 6, height: 6)
+                    .frame(width: 5, height: 5)
                 Text(header.label)
                     .font(Theme.Fonts.todayLabel)
                     .foregroundStyle(Theme.Colors.todayAccent)

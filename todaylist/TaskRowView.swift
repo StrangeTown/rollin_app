@@ -23,16 +23,21 @@ struct TaskRowView: View {
         return formatter
     }()
     
+    // Completed icon color: blue only for Today, gray for past days
+    private var completedIconColor: Color {
+        isToday ? Theme.Colors.todayAccent : Theme.Colors.completedText
+    }
+    
     var body: some View {
         HStack(alignment: .top) {
             // Checkbox with linear icon and animation
             Image(systemName: item.isCompleted ? Theme.Icons.taskComplete : Theme.Icons.taskIncomplete)
-                .foregroundStyle(item.isCompleted ? Theme.Colors.todayAccent : .secondary)
+                .foregroundStyle(item.isCompleted ? completedIconColor : .secondary)
                 .scaleEffect(completionScale)
                 .contentShape(Rectangle().size(width: 24, height: 24))
                 .onTapGesture {
-                    // Animate completion
-                    if !item.isCompleted {
+                    // Animate completion only for Today tasks
+                    if !item.isCompleted && isToday {
                         withAnimation(Theme.Animation.completionBounce) {
                             completionScale = 1.3
                         }
@@ -53,8 +58,8 @@ struct TaskRowView: View {
                     .fixedSize(horizontal: false, vertical: true)
                     .multilineTextAlignment(.leading)
                 
-                // Breadcrumb with capsule tag style
-                if let context = item.context {
+                // Breadcrumb: only show in scheduled view (detail), hide in Inbox (sidebar)
+                if isScheduled, let context = item.context {
                     Text(context.fullPath.replacingOccurrences(of: " / ", with: " › "))
                         .breadcrumbTagStyle()
                 }

@@ -109,7 +109,7 @@ enum Theme {
     // MARK: - Spacing
     enum Spacing {
         /// Vertical spacing between list items
-        static let listItemVertical: CGFloat = 6
+        static let listItemVertical: CGFloat = 10
         
         /// Internal spacing in task row
         static let taskRowInternal: CGFloat = 4
