@@ -76,13 +76,13 @@ struct ContentView: View {
                         // Group tasks by date (Today, Yesterday, etc.)
                         Section(header: 
                             HStack {
-                                Text(formatSectionHeader(date, relativeTo: currentDate))
+                                sectionHeaderView(for: date)
                                 if Calendar.current.isDate(date, inSameDayAs: currentDate) {
                                     Spacer()
                                     Button(action: {
                                         showTimelineSheet = true
                                     }) {
-                                        Image(systemName: "clock")
+                                        Image(systemName: Theme.Icons.timeline)
                                     }
                                     .buttonStyle(.borderless)
                                     .help("View today's timeline")
@@ -91,7 +91,7 @@ struct ContentView: View {
                                         taskAssignedDate = currentDate
                                         showAddTaskSheet = true
                                     }) {
-                                        Image(systemName: "plus")
+                                        Image(systemName: Theme.Icons.add)
                                     }
                                     .buttonStyle(.borderless)
                                     .help("Add task to Today (⌘T)")
@@ -111,10 +111,29 @@ struct ContentView: View {
                                     isToday: Calendar.current.isDate(date, inSameDayAs: currentDate)
                                 )
                                 .listRowSeparator(.hidden)
+                                .listRowInsets(EdgeInsets(top: Theme.Spacing.listItemVertical, leading: 0, bottom: Theme.Spacing.listItemVertical, trailing: 0))
                             }
                             .onDelete { offsets in
                                 deleteScheduledItems(at: offsets, in: groupedItems[date]!)
                             }
+                        }
+                    }
+                    
+                    // Empty state when all today's tasks are completed
+                    if allTodayTasksCompleted {
+                        Section {
+                            VStack(spacing: 12) {
+                                Text("🎉")
+                                    .font(.system(size: 48))
+                                Text("All done for today!")
+                                    .font(.headline)
+                                    .foregroundStyle(.secondary)
+                                Text("Great job! Enjoy your day.")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.tertiary)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 24)
                         }
                     }
                 }
@@ -183,20 +202,52 @@ struct ContentView: View {
     // MARK: - Helper Methods
     
     // Formats the date header with relative terms (Today, Yesterday, Tomorrow)
-    private func formatSectionHeader(_ date: Date, relativeTo referenceDate: Date) -> String {
+    private func formatSectionHeader(_ date: Date, relativeTo referenceDate: Date) -> (dateString: String, label: String, isToday: Bool) {
         let calendar = Calendar.current
         let dateString = Self.sectionDateFormatter.string(from: date)
         
         if calendar.isDate(date, inSameDayAs: referenceDate) {
-            return "\(dateString)   Today"
+            return (dateString, "Today", true)
         } else if calendar.isDate(date, inSameDayAs: calendar.date(byAdding: .day, value: -1, to: referenceDate)!) {
-            return "\(dateString)   Yesterday"
+            return (dateString, "Yesterday", false)
         } else if calendar.isDate(date, inSameDayAs: calendar.date(byAdding: .day, value: 1, to: referenceDate)!) {
-            return "\(dateString)   Tomorrow"
+            return (dateString, "Tomorrow", false)
         } else {
             let dayOfWeek = Self.dayOfWeekFormatter.string(from: date)
-            return "\(dateString)   \(dayOfWeek)"
+            return (dateString, dayOfWeek, false)
         }
+    }
+    
+    // Styled section header view with emphasized Today
+    @ViewBuilder
+    private func sectionHeaderView(for date: Date) -> some View {
+        let header = formatSectionHeader(date, relativeTo: currentDate)
+        HStack(spacing: 6) {
+            Text(header.dateString)
+                .font(Theme.Fonts.sectionHeader)
+            if header.isToday {
+                Circle()
+                    .fill(Theme.Colors.todayAccent)
+                    .frame(width: 6, height: 6)
+                Text(header.label)
+                    .font(Theme.Fonts.todayLabel)
+                    .foregroundStyle(Theme.Colors.todayAccent)
+            } else {
+                Text(header.label)
+                    .font(Theme.Fonts.sectionHeader)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+    
+    // Check if all today's tasks are completed
+    private var allTodayTasksCompleted: Bool {
+        let calendar = Calendar.current
+        let todayItems = scheduledItems.filter { item in
+            guard let date = item.assignedDate else { return false }
+            return calendar.isDate(date, inSameDayAs: currentDate)
+        }
+        return !todayItems.isEmpty && todayItems.allSatisfy { $0.isCompleted }
     }
 
     private func toggleCompletion(for item: Item) {
@@ -299,12 +350,19 @@ struct ContentView: View {
                 .font(.subheadline)
                 .fontWeight(.semibold)
                 .foregroundStyle(.secondary)
+            
+            // Inbox badge count
+            if !inboxItems.isEmpty {
+                Text("\(inboxItems.count)")
+                    .badgeStyle(isActive: true, isSelected: false)
+            }
+            
             Spacer()
             Button {
                 taskAssignedDate = nil
                 showAddTaskSheet = true
             } label: {
-                Image(systemName: "plus")
+                Image(systemName: Theme.Icons.add)
             }
             .buttonStyle(.borderless)
             .foregroundStyle(.secondary)
@@ -343,7 +401,7 @@ struct ContentView: View {
                 newContextName = ""
                 showAddContextAlert = true
             } label: {
-                Image(systemName: "plus")
+                Image(systemName: Theme.Icons.add)
             }
             .buttonStyle(.borderless)
             .foregroundStyle(.secondary)
@@ -384,6 +442,7 @@ struct ContextTreeRow: View {
                             showAddContextAlert: $showAddContextAlert,
                             onDelete: onDelete
                         )
+                        .padding(.leading, Theme.Spacing.childIndent)
                     }
                 }
             } label: {
@@ -397,30 +456,30 @@ struct ContextTreeRow: View {
     
     private var nodeContent: some View {
         HStack {
-            Image(systemName: hasChildren ? "circle.fill" : "circle")
-                .foregroundStyle(selectedContext == node ? .white : .secondary)
-                .font(.system(size: 8))
+            // Only show circle icon for leaf nodes (no children)
+            // Parent nodes use DisclosureGroup's built-in chevron
+            if !hasChildren {
+                Image(systemName: Theme.Icons.nodeLeaf)
+                    .foregroundStyle(selectedContext == node ? .white : .secondary)
+                    .font(Theme.Fonts.nodeIndicator)
+            }
             
             Text(node.name)
                 .foregroundStyle(selectedContext == node ? .white : .primary)
             
             Spacer()
             
+            // Badge with active style when has items
             if let items = node.items, !items.isEmpty {
                 Text("\(items.count)")
-                    .font(.caption)
-                    .foregroundStyle(selectedContext == node ? .white.opacity(0.9) : .secondary)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(selectedContext == node ? .white.opacity(0.25) : Color.gray.opacity(0.1))
-                    .clipShape(Capsule())
+                    .badgeStyle(isActive: true, isSelected: selectedContext == node)
             }
         }
-        .padding(.vertical, 6)
-        .padding(.horizontal, 8)
+        .padding(.vertical, Theme.Spacing.sidebarItemVertical)
+        .padding(.horizontal, Theme.Spacing.sidebarItemHorizontal)
         .background(
-            RoundedRectangle(cornerRadius: 6)
-                .fill(selectedContext == node ? Color.accentColor : (isHovering ? Color.primary.opacity(0.05) : Color.clear))
+            RoundedRectangle(cornerRadius: Theme.CornerRadius.medium)
+                .fill(selectedContext == node ? Theme.Colors.selectionBackground : (isHovering ? Theme.Colors.hoverBackground : Color.clear))
         )
         .contentShape(Rectangle())
         .onTapGesture {

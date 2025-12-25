@@ -86,7 +86,7 @@ struct TodayTimelineView: View {
                 
                 if !todayCompletedItems.isEmpty {
                     Button(action: copyToClipboard) {
-                        Image(systemName: showCopiedFeedback ? "checkmark" : "doc.on.doc")
+                        Image(systemName: showCopiedFeedback ? "checkmark" : Theme.Icons.copy)
                             .foregroundColor(showCopiedFeedback ? .green : nil)
                     }
                     .buttonStyle(.plain)
@@ -94,7 +94,7 @@ struct TodayTimelineView: View {
                 }
                 
                 Button(action: { dismiss() }) {
-                    Image(systemName: "xmark.circle.fill")
+                    Image(systemName: Theme.Icons.dismiss)
                         .foregroundColor(.secondary)
                 }
                 .buttonStyle(.plain)

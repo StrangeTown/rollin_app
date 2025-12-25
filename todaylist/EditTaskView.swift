@@ -35,7 +35,7 @@ struct EditTaskView: View {
                         showContextPicker = true
                     } label: {
                         HStack(spacing: 6) {
-                            Image(systemName: "folder")
+                            Image(systemName: Theme.Icons.folder)
                                 .font(.subheadline)
                             Text(selectedContext?.name ?? "Inbox")
                                 .font(.subheadline)

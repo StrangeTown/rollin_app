@@ -30,7 +30,7 @@ struct AddTaskView: View {
                         showContextPicker = true
                     } label: {
                         HStack(spacing: 6) {
-                            Image(systemName: "folder")
+                            Image(systemName: Theme.Icons.folder)
                                 .font(.subheadline)
                             Text(selectedContext?.name ?? "Inbox")
                                 .font(.subheadline)
@@ -49,7 +49,7 @@ struct AddTaskView: View {
                     // Date Pill (if applicable)
                     if assignedDate != nil {
                         HStack(spacing: 6) {
-                            Image(systemName: "calendar")
+                            Image(systemName: Theme.Icons.calendar)
                             Text("Today")
                         }
                         .font(.subheadline)
