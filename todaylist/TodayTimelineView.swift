@@ -39,13 +39,12 @@ struct TodayTimelineView: View {
             .sorted { ($0.completedAt ?? Date.distantPast) < ($1.completedAt ?? Date.distantPast) }
     }
     
-    // Generate text for copying
+    // Generate text for copying (Markdown format with context)
     private var copyText: String {
         todayCompletedItems.map { item in
-            if let completedAt = item.completedAt {
-                return "\(Self.timeFormatter.string(from: completedAt)) \(item.title)"
-            }
-            return item.title
+            let time = item.completedAt.map { Self.timeFormatter.string(from: $0) } ?? ""
+            let tag = item.context.map { "[\($0.name)] " } ?? ""
+            return "- \(time) \(tag)\(item.title)"
         }.joined(separator: "\n")
     }
     
@@ -73,12 +72,12 @@ struct TodayTimelineView: View {
         VStack(spacing: 0) {
             // Header
             HStack {
-                Text("Today's Timeline")
+                Text("今日时间轴")
                     .font(.headline)
                 Spacer()
                 
                 if showCopiedFeedback {
-                    Text("Copied!")
+                    Text("已复制")
                         .font(.caption)
                         .foregroundColor(.secondary)
                         .transition(.opacity)
@@ -144,18 +143,28 @@ struct TimelineItemRow: View {
             
             // Content
             VStack(alignment: .leading, spacing: 4) {
-                // Time
+                // Time (gray, not bold - visual noise reduction)
                 if let completedAt = item.completedAt {
                     Text(timeFormatter.string(from: completedAt))
                         .font(.caption)
-                        .fontWeight(.medium)
-                        .foregroundColor(.accentColor)
+                        .foregroundColor(.secondary)
                 }
                 
                 // Task title
                 Text(item.title)
                     .font(.body)
                     .foregroundColor(.primary)
+                
+                // Context tag
+                if let context = item.context {
+                    Text(context.name)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Theme.Colors.breadcrumbBackground)
+                        .clipShape(Capsule())
+                }
             }
             .padding(.bottom, 16)
             
