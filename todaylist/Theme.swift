@@ -77,6 +77,24 @@ enum Theme {
             light: Color.secondary.opacity(0.4),
             dark: Color.secondary.opacity(0.5)
         )
+        
+        /// Timeline task title - soft charcoal instead of pure black
+        static let timelineText = Color(
+            light: Color(red: 0.11, green: 0.11, blue: 0.12),  // #1C1C1E
+            dark: Color(red: 0.92, green: 0.92, blue: 0.92)
+        )
+        
+        /// Timeline timestamp - muted gray
+        static let timelineTimestamp = Color(
+            light: Color(red: 0.56, green: 0.56, blue: 0.58),  // #8E8E93
+            dark: Color(red: 0.6, green: 0.6, blue: 0.62)
+        )
+        
+        /// Timeline tag background - very light, almost white
+        static let timelineTagBackground = Color(
+            light: Color(red: 0.95, green: 0.95, blue: 0.97),  // #F2F2F7
+            dark: Color.gray.opacity(0.18)
+        )
     }
     
     // MARK: - Fonts

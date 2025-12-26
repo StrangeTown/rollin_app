@@ -98,7 +98,7 @@ struct TodayTimelineView: View {
                 }
                 .buttonStyle(.plain)
             }
-            .padding()
+            .padding(24)
             
             Divider()
             
@@ -117,7 +117,7 @@ struct TodayTimelineView: View {
                             TimelineItemRow(item: item, timeFormatter: Self.timeFormatter)
                         }
                     }
-                    .padding(.vertical, 8)
+                    .padding(.vertical, 16)
                 }
             }
         }
@@ -130,47 +130,47 @@ struct TimelineItemRow: View {
     let timeFormatter: DateFormatter
     
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            // Timeline indicator
+        HStack(alignment: .top, spacing: 16) {
+            // Timeline indicator - refined
             VStack(spacing: 0) {
                 Circle()
                     .fill(Color.accentColor)
-                    .frame(width: 10, height: 10)
+                    .frame(width: 8, height: 8)
                 Rectangle()
-                    .fill(Color.accentColor.opacity(0.3))
-                    .frame(width: 2)
+                    .fill(Color.accentColor.opacity(0.2))
+                    .frame(width: 1.5)
             }
             
             // Content
-            VStack(alignment: .leading, spacing: 4) {
-                // Time (gray, not bold - visual noise reduction)
+            VStack(alignment: .leading, spacing: 6) {
+                // Time - smaller, muted gray
                 if let completedAt = item.completedAt {
                     Text(timeFormatter.string(from: completedAt))
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                        .font(.caption2)
+                        .foregroundColor(Theme.Colors.timelineTimestamp)
                 }
                 
-                // Task title
+                // Task title - soft charcoal
                 Text(item.title)
                     .font(.body)
-                    .foregroundColor(.primary)
+                    .foregroundColor(Theme.Colors.timelineText)
                 
-                // Context tag
+                // Context tag - very light background
                 if let context = item.context {
                     Text(context.name)
                         .font(.caption2)
-                        .foregroundStyle(.secondary)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(Theme.Colors.breadcrumbBackground)
+                        .foregroundStyle(Theme.Colors.timelineTimestamp)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(Theme.Colors.timelineTagBackground)
                         .clipShape(Capsule())
                 }
             }
-            .padding(.bottom, 16)
+            .padding(.bottom, 24)
             
             Spacer()
         }
-        .padding(.horizontal, 16)
+        .padding(.horizontal, 24)
     }
 }
 
