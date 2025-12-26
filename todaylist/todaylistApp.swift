@@ -26,5 +26,20 @@ struct todaylistApp: App {
             ContentView()
         }
         .modelContainer(sharedModelContainer)
+        
+        Settings {
+            SettingsView()
+                .modelContainer(sharedModelContainer)
+        }
+
+        MenuBarExtra("TodayList", systemImage: "checklist") {
+            Button("Settings") {
+                NSApplication.shared.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+            }
+            Divider()
+            Button("Quit") {
+                NSApplication.shared.terminate(nil)
+            }
+        }
     }
 }
