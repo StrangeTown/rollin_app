@@ -40,6 +40,10 @@ struct ContentView: View {
     @State private var showTimelineSheet = false
     
     @State private var taskToEdit: Item?
+    @State private var showSettings = false
+    
+    // App Storage for retention policy
+    @AppStorage("retentionDays") private var retentionDays: Int = 365
 
     // Date formatter for section headers (e.g. "11.20")
     private static let sectionDateFormatter: DateFormatter = {
@@ -63,6 +67,14 @@ struct ContentView: View {
                 contextSection
             }
             .navigationSplitViewColumnWidth(min: 250, ideal: 300)
+            .toolbar {
+                ToolbarItem(placement: .automatic) {
+                    Button(action: { showSettings = true }) {
+                        Image(systemName: "gear")
+                    }
+                    .help("Settings")
+                }
+            }
         } detail: {
             if let context = selectedContext {
                 ContextDetailView(context: context, taskToEdit: $taskToEdit)
@@ -168,6 +180,11 @@ struct ContentView: View {
         .onAppear {
             currentDate = Date()
             moveOverdueTasksToInbox()
+            
+            // Auto cleanup old completed tasks on launch
+            Task { @MainActor in
+                _ = DataCleanupManager.cleanOldTasks(context: modelContext, daysToKeep: retentionDays)
+            }
         }
         .onChange(of: scenePhase) { _, newPhase in
             if newPhase == .active {
@@ -187,6 +204,9 @@ struct ContentView: View {
         }
         .sheet(item: $taskToEdit) { item in
             EditTaskView(item: item)
+        }
+        .sheet(isPresented: $showSettings) {
+            SettingsView()
         }
     }
     
