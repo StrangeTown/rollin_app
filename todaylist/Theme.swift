@@ -128,25 +128,25 @@ enum Theme {
     enum Spacing {
         /// Vertical spacing between list items
         static let listItemVertical: CGFloat = 10
-        
+
         /// Internal spacing in task row
         static let taskRowInternal: CGFloat = 4
-        
+
         /// Sidebar item padding
         static let sidebarItemVertical: CGFloat = 6
         static let sidebarItemHorizontal: CGFloat = 8
-        
-        /// Child node indentation
-        static let childIndent: CGFloat = 16
-        
+
+        /// Child node indentation - increased for better hierarchy
+        static let childIndent: CGFloat = 20
+
         /// Badge padding
         static let badgeHorizontal: CGFloat = 6
         static let badgeVertical: CGFloat = 2
-        
+
         /// Breadcrumb padding
         static let breadcrumbHorizontal: CGFloat = 6
         static let breadcrumbVertical: CGFloat = 2
-        
+
         /// Dialog spacing
         static let dialogPadding: CGFloat = 24
         static let dialogSection: CGFloat = 20
@@ -234,33 +234,35 @@ struct BreadcrumbTagStyle: ViewModifier {
     }
 }
 
-/// Badge style modifier
+/// Badge style modifier - simplified for better visual hierarchy
 struct BadgeStyle: ViewModifier {
     let isActive: Bool
     let isSelected: Bool
-    
+
     func body(content: Content) -> some View {
         content
-            .font(Theme.Fonts.badge)
+            .font(.system(size: 11))
             .foregroundStyle(badgeTextColor)
-            .padding(.horizontal, Theme.Spacing.badgeHorizontal)
-            .padding(.vertical, Theme.Spacing.badgeVertical)
+            .padding(.horizontal, 5)
+            .padding(.vertical, 2)
             .background(badgeBackgroundColor)
             .clipShape(Capsule())
     }
-    
+
     private var badgeTextColor: Color {
         if isSelected {
             return .white.opacity(0.9)
         }
-        return isActive ? Theme.Colors.badgeActiveText : .secondary
+        // 未选中时使用柔和的灰色
+        return .secondary
     }
-    
+
     private var badgeBackgroundColor: Color {
         if isSelected {
-            return .white.opacity(0.25)
+            return .white.opacity(0.2)
         }
-        return isActive ? Theme.Colors.badgeActive : Theme.Colors.badgeDefault
+        // 未选中时使用极淡的背景或透明
+        return isActive ? Color.gray.opacity(0.1) : Color.clear
     }
 }
 

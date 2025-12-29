@@ -454,17 +454,31 @@ struct ContentView: View {
 // MARK: - Context Tree Row with collapsible children
 struct ContextTreeRow: View {
     let node: ContextNode
+    let depth: Int  // 0 = root level, 1+ = child levels
     @Binding var selectedContext: ContextNode?
     @Binding var contextParentForAdd: ContextNode?
     @Binding var showAddContextAlert: Bool
     let onDelete: (ContextNode) -> Void
-    
+
     @State private var isHovering = false
-    
+
+    init(node: ContextNode, depth: Int = 0, selectedContext: Binding<ContextNode?>, contextParentForAdd: Binding<ContextNode?>, showAddContextAlert: Binding<Bool>, onDelete: @escaping (ContextNode) -> Void) {
+        self.node = node
+        self.depth = depth
+        _selectedContext = selectedContext
+        _contextParentForAdd = contextParentForAdd
+        _showAddContextAlert = showAddContextAlert
+        self.onDelete = onDelete
+    }
+
     private var hasChildren: Bool {
         node.children?.isEmpty == false
     }
-    
+
+    private var isRootLevel: Bool {
+        depth == 0
+    }
+
     var body: some View {
         if hasChildren {
             // 有子节点：使用 DisclosureGroup
@@ -473,6 +487,7 @@ struct ContextTreeRow: View {
                     ForEach(children.sorted(by: { $0.name < $1.name }), id: \.id) { childNode in
                         ContextTreeRow(
                             node: childNode,
+                            depth: depth + 1,
                             selectedContext: $selectedContext,
                             contextParentForAdd: $contextParentForAdd,
                             showAddContextAlert: $showAddContextAlert,
@@ -489,23 +504,21 @@ struct ContextTreeRow: View {
             nodeContent
         }
     }
-    
+
     private var nodeContent: some View {
-        HStack {
-            // Only show circle icon for leaf nodes (no children)
-            // Parent nodes use DisclosureGroup's built-in chevron
-            if !hasChildren {
-                Image(systemName: Theme.Icons.nodeLeaf)
-                    .foregroundStyle(selectedContext == node ? .white : .secondary)
-                    .font(Theme.Fonts.nodeIndicator)
-            }
-            
+        HStack(spacing: 6) {
+            // 图标：根据层级和是否有子节点决定
+            nodeIcon
+
+            // 名称：根据层级调整字重和颜色
             Text(node.name)
-                .foregroundStyle(selectedContext == node ? .white : .primary)
-            
+                .font(isRootLevel ? .body : .callout)
+                .fontWeight(isRootLevel ? .medium : .regular)
+                .foregroundStyle(textColor)
+
             Spacer()
-            
-            // Badge with active style when has items
+
+            // Badge：只在有 items 且数量 > 0 时显示
             if let items = node.items, !items.isEmpty {
                 Text("\(items.count)")
                     .badgeStyle(isActive: true, isSelected: selectedContext == node)
@@ -537,6 +550,35 @@ struct ContextTreeRow: View {
                 onDelete(node)
             }
         }
+    }
+
+    @ViewBuilder
+    private var nodeIcon: some View {
+        let isSelected = selectedContext == node
+
+        if hasChildren {
+            // 父节点：使用 folder 图标
+            Image(systemName: "folder.fill")
+                .font(.system(size: 12))
+                .foregroundStyle(isSelected ? .white : Theme.Colors.todayAccent.opacity(0.8))
+        } else if isRootLevel {
+            // 根级别叶子节点：使用 folder 图标
+            Image(systemName: "folder")
+                .font(.system(size: 12))
+                .foregroundStyle(isSelected ? .white : .secondary)
+        } else {
+            // 子级别叶子节点：使用 # 符号
+            Image(systemName: "number")
+                .font(.system(size: 10, weight: .medium))
+                .foregroundStyle(isSelected ? .white : Color.secondary.opacity(0.6))
+        }
+    }
+
+    private var textColor: Color {
+        if selectedContext == node {
+            return .white
+        }
+        return isRootLevel ? .primary : .secondary
     }
 }
 
