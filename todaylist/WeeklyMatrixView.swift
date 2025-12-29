@@ -44,12 +44,20 @@ struct WeeklyMatrixView: View {
 
     // Copy feedback state
     @State private var showCopyFeedback = false
+    @State private var copyFeedbackTask: Task<Void, Never>?
 
     // Date range selection
     @State private var selectedPreset: DateRangePreset = .week
-    @State private var customStartDate: Date = Calendar.current.date(byAdding: .day, value: -6, to: Date())!
+    @State private var customStartDate: Date = Calendar.current.date(byAdding: .day, value: -6, to: Date()) ?? Date()
     @State private var customEndDate: Date = Date()
     @State private var showDatePicker = false
+
+    // Static DateFormatter for performance
+    private static let dateRangeFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MM.dd"
+        return formatter
+    }()
     
     // Computed date range based on selection
     private var dateRange: (start: Date, end: Date) {
@@ -59,11 +67,11 @@ struct WeeklyMatrixView: View {
         if selectedPreset == .custom {
             return (calendar.startOfDay(for: customStartDate), calendar.startOfDay(for: customEndDate))
         } else if let days = selectedPreset.days {
-            let start = calendar.date(byAdding: .day, value: -(days - 1), to: today)!
+            let start = calendar.date(byAdding: .day, value: -(days - 1), to: today) ?? today
             return (start, today)
         }
         // Fallback to week
-        let weekAgo = calendar.date(byAdding: .day, value: -6, to: today)!
+        let weekAgo = calendar.date(byAdding: .day, value: -6, to: today) ?? today
         return (weekAgo, today)
     }
     
@@ -79,7 +87,10 @@ struct WeeklyMatrixView: View {
     
     // Group items by context ID for quick lookup
     private var itemsByContextId: [UUID: [Item]] {
-        Dictionary(grouping: weekItems.filter { $0.context != nil }) { $0.context!.id }
+        Dictionary(grouping: weekItems.compactMap { item -> (UUID, Item)? in
+            guard let context = item.context else { return nil }
+            return (context.id, item)
+        }) { $0.0 }.mapValues { $0.map { $0.1 } }
     }
     
     // Build hierarchical data for each root context
@@ -183,7 +194,8 @@ struct WeeklyMatrixView: View {
             }.count
 
             result.append(DailyCompletion(date: dayStart, count: completedCount))
-            currentDay = calendar.date(byAdding: .day, value: 1, to: currentDay)!
+            guard let nextDay = calendar.date(byAdding: .day, value: 1, to: currentDay) else { break }
+            currentDay = nextDay
         }
 
         return result
@@ -355,9 +367,7 @@ struct WeeklyMatrixView: View {
     }
 
     private var dateRangeText: String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "MM.dd"
-        return "\(formatter.string(from: dateRange.start)) - \(formatter.string(from: dateRange.end))"
+        "\(Self.dateRangeFormatter.string(from: dateRange.start)) - \(Self.dateRangeFormatter.string(from: dateRange.end))"
     }
 
     private var emptyState: some View {
@@ -376,8 +386,12 @@ struct WeeklyMatrixView: View {
         NSPasteboard.general.setString(markdown, forType: .string)
 
         showCopyFeedback = true
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-            showCopyFeedback = false
+        copyFeedbackTask?.cancel()
+        copyFeedbackTask = Task {
+            try? await Task.sleep(nanoseconds: 1_500_000_000)
+            if !Task.isCancelled {
+                showCopyFeedback = false
+            }
         }
     }
 
@@ -521,6 +535,7 @@ struct RootContextCard: View {
     let onCopy: (RootContextData) -> Void
     @State private var isHovered = false
     @State private var showCopied = false
+    @State private var copyTask: Task<Void, Never>?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -541,8 +556,12 @@ struct RootContextCard: View {
                     Button {
                         onCopy(data)
                         showCopied = true
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                            showCopied = false
+                        copyTask?.cancel()
+                        copyTask = Task {
+                            try? await Task.sleep(nanoseconds: 1_500_000_000)
+                            if !Task.isCancelled {
+                                showCopied = false
+                            }
                         }
                     } label: {
                         Image(systemName: showCopied ? "checkmark" : "doc.on.doc")
@@ -798,7 +817,7 @@ struct SparklineView: View {
             let barWidth = max((width - CGFloat(barCount - 1) * spacing) / CGFloat(barCount), 2)
 
             HStack(alignment: .bottom, spacing: spacing) {
-                ForEach(Array(data.enumerated()), id: \.offset) { index, daily in
+                ForEach(Array(data.enumerated()), id: \.offset) { _, daily in
                     let barHeight = maxCount > 0
                         ? max(CGFloat(daily.count) / CGFloat(maxCount) * height, daily.count > 0 ? 4 : 2)
                         : 2
