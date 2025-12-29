@@ -2,12 +2,31 @@
 //  WeeklyMatrixView.swift
 //  todaylist
 //
-//  Weekly Review - Hierarchical Bento Dashboard
+//  Review Dashboard - Hierarchical Bento Dashboard
 //  Shows tasks grouped by Context hierarchy in a masonry layout
+//  Supports custom date range selection
 //
 
 import SwiftUI
 import SwiftData
+
+// MARK: - Date Range Preset
+
+enum DateRangePreset: String, CaseIterable {
+    case week = "Past 7 Days"
+    case twoWeeks = "Past 14 Days"
+    case month = "Past 30 Days"
+    case custom = "Custom"
+
+    var days: Int? {
+        switch self {
+        case .week: return 7
+        case .twoWeeks: return 14
+        case .month: return 30
+        case .custom: return nil
+        }
+    }
+}
 
 // MARK: - Main View
 
@@ -25,11 +44,25 @@ struct WeeklyMatrixView: View {
 
     // Copy feedback state
     @State private var showCopyFeedback = false
+
+    // Date range selection
+    @State private var selectedPreset: DateRangePreset = .week
+    @State private var customStartDate: Date = Calendar.current.date(byAdding: .day, value: -6, to: Date())!
+    @State private var customEndDate: Date = Date()
+    @State private var showDatePicker = false
     
-    // Date range: past 7 days
+    // Computed date range based on selection
     private var dateRange: (start: Date, end: Date) {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
+
+        if selectedPreset == .custom {
+            return (calendar.startOfDay(for: customStartDate), calendar.startOfDay(for: customEndDate))
+        } else if let days = selectedPreset.days {
+            let start = calendar.date(byAdding: .day, value: -(days - 1), to: today)!
+            return (start, today)
+        }
+        // Fallback to week
         let weekAgo = calendar.date(byAdding: .day, value: -6, to: today)!
         return (weekAgo, today)
     }
@@ -135,21 +168,70 @@ struct WeeklyMatrixView: View {
     }
     
     // MARK: - Header
-    
+
     private var headerBar: some View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
-                Text("📊 Weekly Review")
+                Text("📊 Review")
                     .font(.title2)
                     .fontWeight(.semibold)
-                
-                Text(dateRangeText)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+
+                // Date range selector
+                HStack(spacing: 8) {
+                    // Preset picker
+                    Menu {
+                        ForEach(DateRangePreset.allCases, id: \.self) { preset in
+                            Button {
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    selectedPreset = preset
+                                    if preset == .custom {
+                                        showDatePicker = true
+                                    }
+                                }
+                            } label: {
+                                HStack {
+                                    Text(preset.rawValue)
+                                    if selectedPreset == preset {
+                                        Image(systemName: "checkmark")
+                                    }
+                                }
+                            }
+                        }
+                    } label: {
+                        HStack(spacing: 4) {
+                            Text(selectedPreset.rawValue)
+                                .font(.caption)
+                            Image(systemName: "chevron.down")
+                                .font(.system(size: 8, weight: .semibold))
+                        }
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Theme.Colors.breadcrumbBackground)
+                        .clipShape(Capsule())
+                    }
+
+                    // Date range display
+                    Text(dateRangeText)
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+
+                    // Edit button for custom dates
+                    if selectedPreset == .custom {
+                        Button {
+                            showDatePicker.toggle()
+                        } label: {
+                            Image(systemName: "calendar")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
             }
-            
+
             Spacer()
-            
+
             // Stats
             HStack(spacing: 16) {
                 StatBadge(
@@ -157,14 +239,14 @@ struct WeeklyMatrixView: View {
                     value: "\(weekItems.count)",
                     color: Theme.Colors.todayAccent
                 )
-                
+
                 StatBadge(
                     label: "Done",
                     value: "\(weekItems.filter { $0.isCompleted }.count)",
                     color: .green
                 )
             }
-            
+
             Spacer()
 
             // Copy Report button
@@ -189,6 +271,49 @@ struct WeeklyMatrixView: View {
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 12)
+        .popover(isPresented: $showDatePicker) {
+            datePickerPopover
+        }
+    }
+
+    // MARK: - Date Picker Popover
+
+    private var datePickerPopover: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Custom Date Range")
+                .font(.headline)
+
+            HStack(spacing: 16) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("From")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    DatePicker("", selection: $customStartDate, displayedComponents: .date)
+                        .labelsHidden()
+                        .datePickerStyle(.field)
+                }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("To")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    DatePicker("", selection: $customEndDate, displayedComponents: .date)
+                        .labelsHidden()
+                        .datePickerStyle(.field)
+                }
+            }
+
+            HStack {
+                Spacer()
+                Button("Apply") {
+                    showDatePicker = false
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.small)
+            }
+        }
+        .padding()
+        .frame(width: 280)
     }
 
     private var dateRangeText: String {
@@ -199,9 +324,9 @@ struct WeeklyMatrixView: View {
 
     private var emptyState: some View {
         ContentUnavailableView(
-            "No tasks this week",
+            "No tasks in this period",
             systemImage: "calendar.badge.checkmark",
-            description: Text("Tasks from the past 7 days will appear here.")
+            description: Text("Tasks from \(dateRangeText) will appear here.")
         )
     }
 
@@ -220,7 +345,7 @@ struct WeeklyMatrixView: View {
 
     private func generateFullReportMarkdown() -> String {
         var lines: [String] = []
-        lines.append("# Weekly Review")
+        lines.append("# Review")
         lines.append("\(dateRangeText)")
         lines.append("")
         lines.append("**Total:** \(weekItems.count) | **Done:** \(weekItems.filter { $0.isCompleted }.count)")
