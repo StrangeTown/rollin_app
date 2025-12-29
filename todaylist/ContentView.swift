@@ -69,12 +69,6 @@ struct ContentView: View {
             .navigationSplitViewColumnWidth(min: 250, ideal: 300)
             .toolbar {
                 ToolbarItem(placement: .automatic) {
-                    Button(action: { showWeeklyMatrix = true }) {
-                        Image(systemName: "tablecells")
-                    }
-                    .help("Weekly Review")
-                }
-                ToolbarItem(placement: .automatic) {
                     Button(action: { showSettings = true }) {
                         Image(systemName: "gear")
                     }
@@ -430,6 +424,15 @@ struct ContentView: View {
                 .fontWeight(.semibold)
                 .foregroundStyle(.secondary)
             Spacer()
+            Button {
+                showWeeklyMatrix = true
+            } label: {
+                Image(systemName: "tablecells")
+            }
+            .buttonStyle(.borderless)
+            .foregroundStyle(.secondary)
+            .help("Weekly Review")
+
             Button {
                 contextParentForAdd = nil
                 withAnimation(Theme.Animation.dialog) {
