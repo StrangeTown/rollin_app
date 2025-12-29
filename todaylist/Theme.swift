@@ -146,6 +146,12 @@ enum Theme {
         /// Breadcrumb padding
         static let breadcrumbHorizontal: CGFloat = 6
         static let breadcrumbVertical: CGFloat = 2
+        
+        /// Dialog spacing
+        static let dialogPadding: CGFloat = 24
+        static let dialogSection: CGFloat = 20
+        static let dialogTitle: CGFloat = 12
+        static let dialogInputHeight: CGFloat = 34
     }
     
     // MARK: - Icons (Linear style)
@@ -185,6 +191,9 @@ enum Theme {
         
         /// Standard transition
         static let standard = SwiftUI.Animation.easeInOut(duration: 0.2)
+        
+        /// Dialog appear/disappear - elegant spring for Spotlight-like feel
+        static let dialog = SwiftUI.Animation.spring(duration: 0.25)
     }
     
     // MARK: - Corner Radius
@@ -192,6 +201,7 @@ enum Theme {
         static let small: CGFloat = 4
         static let medium: CGFloat = 6
         static let large: CGFloat = 8
+        static let dialog: CGFloat = 16
     }
 }
 

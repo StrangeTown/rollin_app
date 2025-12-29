@@ -31,7 +31,6 @@ struct ContentView: View {
     
     @State private var selectedContext: ContextNode?
     @State private var showAddContextAlert = false
-    @State private var newContextName = ""
     @State private var contextParentForAdd: ContextNode?
     
     @State private var showAddTaskSheet = false
@@ -152,11 +151,16 @@ struct ContentView: View {
             }
         }
         }
-        .alert("New Context", isPresented: $showAddContextAlert) {
-            TextField("Name", text: $newContextName)
-            Button("Cancel", role: .cancel) { }
-            Button("Add") {
-                addContext(name: newContextName, parent: contextParentForAdd)
+        .overlay {
+            if showAddContextAlert {
+                AddContextDialog(
+                    isPresented: $showAddContextAlert,
+                    parent: contextParentForAdd,
+                    onAdd: { name in
+                        addContext(name: name, parent: contextParentForAdd)
+                    }
+                )
+                .transition(.opacity)
             }
         }
         // MARK: - Lifecycle & Events
@@ -402,7 +406,6 @@ struct ContentView: View {
                     node: node,
                     selectedContext: $selectedContext,
                     contextParentForAdd: $contextParentForAdd,
-                    newContextName: $newContextName,
                     showAddContextAlert: $showAddContextAlert,
                     onDelete: deleteContext
                 )
@@ -419,8 +422,9 @@ struct ContentView: View {
             Spacer()
             Button {
                 contextParentForAdd = nil
-                newContextName = ""
-                showAddContextAlert = true
+                withAnimation(Theme.Animation.dialog) {
+                    showAddContextAlert = true
+                }
             } label: {
                 Image(systemName: Theme.Icons.add)
             }
@@ -439,7 +443,6 @@ struct ContextTreeRow: View {
     let node: ContextNode
     @Binding var selectedContext: ContextNode?
     @Binding var contextParentForAdd: ContextNode?
-    @Binding var newContextName: String
     @Binding var showAddContextAlert: Bool
     let onDelete: (ContextNode) -> Void
     
@@ -459,7 +462,6 @@ struct ContextTreeRow: View {
                             node: childNode,
                             selectedContext: $selectedContext,
                             contextParentForAdd: $contextParentForAdd,
-                            newContextName: $newContextName,
                             showAddContextAlert: $showAddContextAlert,
                             onDelete: onDelete
                         )
@@ -514,8 +516,9 @@ struct ContextTreeRow: View {
         .contextMenu {
             Button("Add Child Context") {
                 contextParentForAdd = node
-                newContextName = ""
-                showAddContextAlert = true
+                withAnimation(Theme.Animation.dialog) {
+                    showAddContextAlert = true
+                }
             }
             Button("Delete", role: .destructive) {
                 onDelete(node)
