@@ -563,7 +563,6 @@ struct TaskRow: View {
             Text(item.title)
                 .font(isNested ? .caption : .callout)
                 .foregroundStyle(item.isCompleted ? .secondary : .primary)
-                .strikethrough(item.isCompleted, color: .secondary)
                 .lineLimit(1)
                 .truncationMode(.tail)
 
