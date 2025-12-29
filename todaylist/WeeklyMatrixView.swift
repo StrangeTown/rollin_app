@@ -198,17 +198,13 @@ struct WeeklyMatrixView: View {
                             }
                         }
                     } label: {
-                        HStack(spacing: 4) {
-                            Text(selectedPreset.rawValue)
-                                .font(.caption)
-                            Image(systemName: "chevron.down")
-                                .font(.system(size: 8, weight: .semibold))
-                        }
-                        .foregroundStyle(.secondary)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(Theme.Colors.breadcrumbBackground)
-                        .clipShape(Capsule())
+                        Text(selectedPreset.rawValue)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Theme.Colors.breadcrumbBackground)
+                            .clipShape(Capsule())
                     }
 
                     // Date range display
