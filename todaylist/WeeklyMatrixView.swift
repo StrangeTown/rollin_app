@@ -211,12 +211,8 @@ struct WeeklyMatrixView: View {
                     .font(.title2)
                     .fontWeight(.bold)
 
-                // Combined date range control
-                HStack(spacing: 6) {
-                    Image(systemName: "calendar")
-                        .font(.caption)
-                        .foregroundStyle(.tertiary)
-
+                // Date range control
+                HStack(spacing: 8) {
                     Menu {
                         ForEach(DateRangePreset.allCases, id: \.self) { preset in
                             Button {
@@ -237,16 +233,25 @@ struct WeeklyMatrixView: View {
                         }
                     } label: {
                         HStack(spacing: 4) {
+                            Image(systemName: "calendar")
+                                .font(.caption)
                             Text(selectedPreset.rawValue)
                                 .font(.caption)
-                            Text("·")
-                                .foregroundStyle(.tertiary)
-                            Text(dateRangeText)
-                                .font(.caption)
+                            Image(systemName: "chevron.down")
+                                .font(.system(size: 8, weight: .medium))
                         }
                         .foregroundStyle(.secondary)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Theme.Colors.breadcrumbBackground)
+                        .clipShape(RoundedRectangle(cornerRadius: 5))
                     }
                     .menuStyle(.borderlessButton)
+
+                    // 具体日期范围 - 始终可见
+                    Text(dateRangeText)
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
 
                     if selectedPreset == .custom {
                         Button {
@@ -259,25 +264,22 @@ struct WeeklyMatrixView: View {
                         .buttonStyle(.plain)
                     }
                 }
-                .padding(.horizontal, 10)
-                .padding(.vertical, 5)
-                .background(Theme.Colors.breadcrumbBackground)
-                .clipShape(RoundedRectangle(cornerRadius: 6))
             }
 
             Spacer()
 
-            // Center: Sparkline + Stats (核心成果区)
-            HStack(spacing: 24) {
+            // Center: Sparkline + Stats (核心成果区) - 底部对齐
+            HStack(alignment: .bottom, spacing: 24) {
                 // Sparkline 趋势图
                 SparklineView(data: dailyCompletionData)
-                    .frame(width: 80, height: 32)
+                    .frame(width: 100, height: 28)
 
                 // 核心统计 - Done 突出显示
-                HStack(spacing: 4) {
+                HStack(alignment: .firstTextBaseline, spacing: 4) {
                     Text("\(weekItems.filter { $0.isCompleted }.count)")
                         .font(.system(size: 28, weight: .bold, design: .rounded))
                         .foregroundStyle(.green)
+                        .fixedSize()
 
                     VStack(alignment: .leading, spacing: 0) {
                         Text("Done")
@@ -288,8 +290,10 @@ struct WeeklyMatrixView: View {
                             .font(.caption2)
                             .foregroundStyle(.tertiary)
                     }
+                    .fixedSize()
                 }
             }
+            .fixedSize()
 
             Spacer()
 
@@ -803,6 +807,13 @@ struct DailyCompletion: Identifiable {
 
 struct SparklineView: View {
     let data: [DailyCompletion]
+    @State private var hoveredIndex: Int?
+
+    private static let tooltipDateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "M.d EEE"
+        return formatter
+    }()
 
     private var maxCount: Int {
         max(data.map { $0.count }.max() ?? 1, 1)
@@ -810,24 +821,83 @@ struct SparklineView: View {
 
     var body: some View {
         GeometryReader { geometry in
-            let width = geometry.size.width
             let height = geometry.size.height
             let barCount = data.count
             let spacing: CGFloat = 2
-            let barWidth = max((width - CGFloat(barCount - 1) * spacing) / CGFloat(barCount), 2)
+            let totalSpacing = CGFloat(barCount - 1) * spacing
+            let barWidth = max((geometry.size.width - totalSpacing) / CGFloat(barCount), 3)
 
-            HStack(alignment: .bottom, spacing: spacing) {
-                ForEach(Array(data.enumerated()), id: \.offset) { _, daily in
-                    let barHeight = maxCount > 0
-                        ? max(CGFloat(daily.count) / CGFloat(maxCount) * height, daily.count > 0 ? 4 : 2)
-                        : 2
+            ZStack(alignment: .top) {
+                // Bars
+                HStack(alignment: .bottom, spacing: spacing) {
+                    ForEach(Array(data.enumerated()), id: \.offset) { index, daily in
+                        let barHeight = maxCount > 0
+                            ? max(CGFloat(daily.count) / CGFloat(maxCount) * height, daily.count > 0 ? 6 : 3)
+                            : 3
 
-                    RoundedRectangle(cornerRadius: 1.5)
-                        .fill(daily.count > 0 ? Color.green.opacity(0.7 + 0.3 * Double(daily.count) / Double(maxCount)) : Color.secondary.opacity(0.2))
-                        .frame(width: barWidth, height: barHeight)
+                        SparklineBar(
+                            daily: daily,
+                            barWidth: barWidth,
+                            barHeight: barHeight,
+                            maxCount: maxCount,
+                            isHovered: hoveredIndex == index
+                        )
+                        .onHover { hovering in
+                            withAnimation(.easeInOut(duration: 0.1)) {
+                                hoveredIndex = hovering ? index : nil
+                            }
+                        }
+                    }
+                }
+
+                // Tooltip overlay
+                if let index = hoveredIndex, index < data.count {
+                    let daily = data[index]
+                    VStack(spacing: 1) {
+                        Text(Self.tooltipDateFormatter.string(from: daily.date))
+                            .font(.system(size: 9))
+                            .foregroundStyle(.secondary)
+                        Text("\(daily.count)")
+                            .font(.system(size: 11, weight: .semibold))
+                    }
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 4)
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 4))
+                    .offset(y: -36)
+                    .transition(.opacity.combined(with: .scale(scale: 0.9)))
                 }
             }
         }
+    }
+}
+
+// MARK: - Sparkline Bar
+
+struct SparklineBar: View {
+    let daily: DailyCompletion
+    let barWidth: CGFloat
+    let barHeight: CGFloat
+    let maxCount: Int
+    let isHovered: Bool
+
+    var body: some View {
+        // 使用 UnevenRoundedRectangle 实现顶部圆角
+        UnevenRoundedRectangle(
+            topLeadingRadius: 2,
+            bottomLeadingRadius: 0,
+            bottomTrailingRadius: 0,
+            topTrailingRadius: 2
+        )
+        .fill(barColor)
+        .frame(width: barWidth, height: isHovered ? barHeight + 2 : barHeight)
+    }
+
+    private var barColor: Color {
+        if daily.count == 0 {
+            return Color.secondary.opacity(isHovered ? 0.3 : 0.15)
+        }
+        let intensity = 0.5 + 0.5 * Double(daily.count) / Double(maxCount)
+        return Color.green.opacity(isHovered ? min(intensity + 0.2, 1.0) : intensity)
     }
 }
 
