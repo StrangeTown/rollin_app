@@ -446,6 +446,7 @@ struct ContentView: View {
             .padding(.trailing, 8)
             .help("Add new context")
         }
+        .padding(.top, 16)
         .padding(.bottom, 4)
     }
 
