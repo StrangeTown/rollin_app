@@ -433,7 +433,12 @@ struct RootContextCard: View {
 struct ChildContextBlock: View {
     let data: ChildContextData
     @State private var isExpanded: Bool = true
+    @State private var showAllTasks: Bool = false
     private let maxVisibleTasks = 5
+
+    private var visibleTasks: [Item] {
+        showAllTasks ? data.tasks : Array(data.tasks.prefix(maxVisibleTasks))
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -469,15 +474,19 @@ struct ChildContextBlock: View {
                 // Tasks with left border line style
                 if !data.tasks.isEmpty {
                     VStack(alignment: .leading, spacing: 6) {
-                        ForEach(data.tasks.prefix(maxVisibleTasks)) { item in
+                        ForEach(visibleTasks) { item in
                             TaskRow(item: item, isNested: true)
                         }
 
                         // Show more button if needed
-                        if data.tasks.count > maxVisibleTasks {
+                        if data.tasks.count > maxVisibleTasks && !showAllTasks {
                             ShowMoreButton(
                                 remainingCount: data.tasks.count - maxVisibleTasks,
-                                action: { }
+                                action: {
+                                    withAnimation(.easeInOut(duration: 0.2)) {
+                                        showAllTasks = true
+                                    }
+                                }
                             )
                         }
                     }
