@@ -167,18 +167,44 @@ struct WeeklyMatrixView: View {
         .frame(minWidth: 700, minHeight: 500)
     }
     
+    // MARK: - Daily completion data for Sparkline
+
+    private var dailyCompletionData: [DailyCompletion] {
+        let calendar = Calendar.current
+        var result: [DailyCompletion] = []
+
+        // Generate all dates in range
+        var currentDay = dateRange.start
+        while currentDay <= dateRange.end {
+            let dayStart = calendar.startOfDay(for: currentDay)
+            let completedCount = weekItems.filter { item in
+                guard let date = item.assignedDate, item.isCompleted else { return false }
+                return calendar.isDate(date, inSameDayAs: dayStart)
+            }.count
+
+            result.append(DailyCompletion(date: dayStart, count: completedCount))
+            currentDay = calendar.date(byAdding: .day, value: 1, to: currentDay)!
+        }
+
+        return result
+    }
+
     // MARK: - Header
 
     private var headerBar: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("📊 Review")
+        HStack(spacing: 20) {
+            // Left: Title and date selector
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Review")
                     .font(.title2)
-                    .fontWeight(.semibold)
+                    .fontWeight(.bold)
 
-                // Date range selector
-                HStack(spacing: 8) {
-                    // Preset picker
+                // Combined date range control
+                HStack(spacing: 6) {
+                    Image(systemName: "calendar")
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+
                     Menu {
                         ForEach(DateRangePreset.allCases, id: \.self) { preset in
                             Button {
@@ -198,75 +224,91 @@ struct WeeklyMatrixView: View {
                             }
                         }
                     } label: {
-                        Text(selectedPreset.rawValue)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
-                            .background(Theme.Colors.breadcrumbBackground)
-                            .clipShape(Capsule())
+                        HStack(spacing: 4) {
+                            Text(selectedPreset.rawValue)
+                                .font(.caption)
+                            Text("·")
+                                .foregroundStyle(.tertiary)
+                            Text(dateRangeText)
+                                .font(.caption)
+                        }
+                        .foregroundStyle(.secondary)
                     }
+                    .menuStyle(.borderlessButton)
 
-                    // Date range display
-                    Text(dateRangeText)
-                        .font(.caption)
-                        .foregroundStyle(.tertiary)
-
-                    // Edit button for custom dates
                     if selectedPreset == .custom {
                         Button {
                             showDatePicker.toggle()
                         } label: {
-                            Image(systemName: "calendar")
-                                .font(.caption)
+                            Image(systemName: "pencil")
+                                .font(.system(size: 10))
                                 .foregroundStyle(.secondary)
                         }
                         .buttonStyle(.plain)
                     }
                 }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(Theme.Colors.breadcrumbBackground)
+                .clipShape(RoundedRectangle(cornerRadius: 6))
             }
 
             Spacer()
 
-            // Stats
-            HStack(spacing: 16) {
-                StatBadge(
-                    label: "Total",
-                    value: "\(weekItems.count)",
-                    color: Theme.Colors.todayAccent
-                )
+            // Center: Sparkline + Stats (核心成果区)
+            HStack(spacing: 24) {
+                // Sparkline 趋势图
+                SparklineView(data: dailyCompletionData)
+                    .frame(width: 80, height: 32)
 
-                StatBadge(
-                    label: "Done",
-                    value: "\(weekItems.filter { $0.isCompleted }.count)",
-                    color: .green
-                )
-            }
-
-            Spacer()
-
-            // Copy Report button
-            Button {
-                copyFullReport()
-            } label: {
+                // 核心统计 - Done 突出显示
                 HStack(spacing: 4) {
-                    Image(systemName: showCopyFeedback ? "checkmark" : "doc.on.doc")
-                        .font(.caption)
-                    Text(showCopyFeedback ? "Copied!" : "Copy Report")
-                        .font(.caption)
-                }
-                .foregroundStyle(showCopyFeedback ? .green : .secondary)
-            }
-            .buttonStyle(.plain)
-            .animation(.easeInOut(duration: 0.2), value: showCopyFeedback)
+                    Text("\(weekItems.filter { $0.isCompleted }.count)")
+                        .font(.system(size: 28, weight: .bold, design: .rounded))
+                        .foregroundStyle(.green)
 
-            Button("Done") {
-                dismiss()
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text("Done")
+                            .font(.caption2)
+                            .fontWeight(.medium)
+                            .foregroundStyle(.green)
+                        Text("of \(weekItems.count)")
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                    }
+                }
             }
-            .keyboardShortcut(.cancelAction)
+
+            Spacer()
+
+            // Right: Actions
+            HStack(spacing: 12) {
+                Button {
+                    copyFullReport()
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: showCopyFeedback ? "checkmark" : "doc.on.doc")
+                            .font(.caption)
+                        Text(showCopyFeedback ? "Copied!" : "Copy")
+                            .font(.caption)
+                    }
+                    .foregroundStyle(showCopyFeedback ? .green : .secondary)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(Theme.Colors.breadcrumbBackground)
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                }
+                .buttonStyle(.plain)
+                .animation(.easeInOut(duration: 0.2), value: showCopyFeedback)
+
+                Button("Done") {
+                    dismiss()
+                }
+                .keyboardShortcut(.cancelAction)
+            }
         }
         .padding(.horizontal, 20)
-        .padding(.vertical, 12)
+        .padding(.vertical, 16)
         .popover(isPresented: $showDatePicker) {
             datePickerPopover
         }
@@ -481,8 +523,8 @@ struct RootContextCard: View {
     @State private var showCopied = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            // Header
+        VStack(alignment: .leading, spacing: 0) {
+            // Header with subtle background
             HStack {
                 Image(systemName: "folder.fill")
                     .font(.caption)
@@ -511,33 +553,44 @@ struct RootContextCard: View {
                     .transition(.opacity)
                 }
 
-                // Progress indicator
-                Text("\(data.completedTaskCount)/\(data.totalTaskCount)")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 2)
-                    .background(Theme.Colors.breadcrumbBackground)
-                    .clipShape(Capsule())
+                // Progress indicator - enhanced style
+                HStack(spacing: 3) {
+                    Text("\(data.completedTaskCount)")
+                        .fontWeight(.semibold)
+                        .foregroundStyle(data.completedTaskCount == data.totalTaskCount ? .green : .primary)
+                    Text("/")
+                        .foregroundStyle(.tertiary)
+                    Text("\(data.totalTaskCount)")
+                        .foregroundStyle(.secondary)
+                }
+                .font(.caption)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 3)
+                .background(Theme.Colors.breadcrumbBackground)
+                .clipShape(Capsule())
             }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .background(Theme.Colors.todayAccent.opacity(0.05))
 
-            Divider()
-
-            // Direct tasks (if any)
-            if !data.directTasks.isEmpty {
-                VStack(alignment: .leading, spacing: 6) {
-                    ForEach(data.directTasks) { item in
-                        TaskRow(item: item)
+            // Content area
+            VStack(alignment: .leading, spacing: 10) {
+                // Direct tasks (if any)
+                if !data.directTasks.isEmpty {
+                    VStack(alignment: .leading, spacing: 6) {
+                        ForEach(data.directTasks) { item in
+                            TaskRow(item: item)
+                        }
                     }
                 }
-            }
 
-            // Child contexts
-            ForEach(data.children) { child in
-                ChildContextBlock(data: child)
+                // Child contexts
+                ForEach(data.children) { child in
+                    ChildContextBlock(data: child)
+                }
             }
+            .padding(16)
         }
-        .padding(16)
         .background(Color(nsColor: .windowBackgroundColor))
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .shadow(color: Color.black.opacity(0.08), radius: 8, x: 0, y: 2)
@@ -577,15 +630,21 @@ struct ChildContextBlock: View {
 
                     Text(data.context.name)
                         .font(.subheadline)
-                        .fontWeight(.medium)
-                        .foregroundStyle(.secondary)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(.primary.opacity(0.8))
 
                     Spacer()
 
                     if data.totalTaskCount > 0 {
-                        Text("\(data.completedTaskCount)/\(data.totalTaskCount)")
-                            .font(.caption2)
-                            .foregroundStyle(.tertiary)
+                        HStack(spacing: 2) {
+                            Text("\(data.completedTaskCount)")
+                                .foregroundStyle(data.completedTaskCount == data.totalTaskCount ? .green : .secondary)
+                            Text("/")
+                                .foregroundStyle(.tertiary)
+                            Text("\(data.totalTaskCount)")
+                                .foregroundStyle(.tertiary)
+                        }
+                        .font(.caption2)
                     }
                 }
             }
@@ -698,17 +757,57 @@ struct StatBadge: View {
     let label: String
     let value: String
     let color: Color
-    
+
     var body: some View {
         VStack(spacing: 2) {
             Text(value)
                 .font(.title3)
                 .fontWeight(.bold)
                 .foregroundStyle(color)
-            
+
             Text(label)
                 .font(.caption2)
                 .foregroundStyle(.secondary)
+        }
+    }
+}
+
+// MARK: - Daily Completion Data
+
+struct DailyCompletion: Identifiable {
+    let id = UUID()
+    let date: Date
+    let count: Int
+}
+
+// MARK: - Sparkline View
+
+struct SparklineView: View {
+    let data: [DailyCompletion]
+
+    private var maxCount: Int {
+        max(data.map { $0.count }.max() ?? 1, 1)
+    }
+
+    var body: some View {
+        GeometryReader { geometry in
+            let width = geometry.size.width
+            let height = geometry.size.height
+            let barCount = data.count
+            let spacing: CGFloat = 2
+            let barWidth = max((width - CGFloat(barCount - 1) * spacing) / CGFloat(barCount), 2)
+
+            HStack(alignment: .bottom, spacing: spacing) {
+                ForEach(Array(data.enumerated()), id: \.offset) { index, daily in
+                    let barHeight = maxCount > 0
+                        ? max(CGFloat(daily.count) / CGFloat(maxCount) * height, daily.count > 0 ? 4 : 2)
+                        : 2
+
+                    RoundedRectangle(cornerRadius: 1.5)
+                        .fill(daily.count > 0 ? Color.green.opacity(0.7 + 0.3 * Double(daily.count) / Double(maxCount)) : Color.secondary.opacity(0.2))
+                        .frame(width: barWidth, height: barHeight)
+                }
+            }
         }
     }
 }
