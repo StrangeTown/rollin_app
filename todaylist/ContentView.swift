@@ -37,6 +37,7 @@ struct ContentView: View {
     @State private var taskAssignedDate: Date? = nil
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
     @State private var showTimelineSheet = false
+    @State private var showWeeklyMatrix = false
     
     @State private var taskToEdit: Item?
     @State private var showSettings = false
@@ -67,6 +68,12 @@ struct ContentView: View {
             }
             .navigationSplitViewColumnWidth(min: 250, ideal: 300)
             .toolbar {
+                ToolbarItem(placement: .automatic) {
+                    Button(action: { showWeeklyMatrix = true }) {
+                        Image(systemName: "tablecells")
+                    }
+                    .help("Weekly Review")
+                }
                 ToolbarItem(placement: .automatic) {
                     Button(action: { showSettings = true }) {
                         Image(systemName: "gear")
@@ -205,6 +212,9 @@ struct ContentView: View {
         }
         .sheet(isPresented: $showTimelineSheet) {
             TodayTimelineView(currentDate: currentDate)
+        }
+        .sheet(isPresented: $showWeeklyMatrix) {
+            WeeklyMatrixView()
         }
         .sheet(item: $taskToEdit) { item in
             EditTaskView(item: item)
