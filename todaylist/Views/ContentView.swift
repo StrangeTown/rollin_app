@@ -204,6 +204,7 @@ struct ContentView: View {
         .sheet(isPresented: $showAddTaskSheet) {
             AddTaskView(assignedDate: taskAssignedDate)
         }
+        .id(taskAssignedDate)
         .sheet(isPresented: $showTimelineSheet) {
             TodayTimelineView(currentDate: currentDate)
         }
