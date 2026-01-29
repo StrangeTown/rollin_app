@@ -16,14 +16,12 @@ enum DateRangePreset: String, CaseIterable {
     case week = "Past 7 Days"
     case twoWeeks = "Past 14 Days"
     case month = "Past 30 Days"
-    case custom = "Custom"
 
-    var days: Int? {
+    var days: Int {
         switch self {
         case .week: return 7
         case .twoWeeks: return 14
         case .month: return 30
-        case .custom: return nil
         }
     }
 }
@@ -48,9 +46,6 @@ struct ReviewView: View {
 
     // Date range selection
     @State private var selectedPreset: DateRangePreset = .week
-    @State private var customStartDate: Date = Calendar.current.date(byAdding: .day, value: -6, to: Date()) ?? Date()
-    @State private var customEndDate: Date = Date()
-    @State private var showDatePicker = false
 
     // Static DateFormatter for performance
     private static let dateRangeFormatter: DateFormatter = {
@@ -63,16 +58,8 @@ struct ReviewView: View {
     private var dateRange: (start: Date, end: Date) {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
-
-        if selectedPreset == .custom {
-            return (calendar.startOfDay(for: customStartDate), calendar.startOfDay(for: customEndDate))
-        } else if let days = selectedPreset.days {
-            let start = calendar.date(byAdding: .day, value: -(days - 1), to: today) ?? today
-            return (start, today)
-        }
-        // Fallback to week
-        let weekAgo = calendar.date(byAdding: .day, value: -6, to: today) ?? today
-        return (weekAgo, today)
+        let start = calendar.date(byAdding: .day, value: -(selectedPreset.days - 1), to: today) ?? today
+        return (start, today)
     }
     
     // Filter items within the week
@@ -199,11 +186,24 @@ struct ReviewView: View {
     
     // MARK: - Daily completion data for Sparkline
 
-    private var dailyCompletionData: [DailyCompletion] {
+    private var dailyCompletionData: [SparklineDataPoint] {
         let calendar = Calendar.current
-        var result: [DailyCompletion] = []
+        let daysDiff = calendar.dateComponents([.day], from: dateRange.start, to: dateRange.end).day ?? 0
+        
+        // Strategy: > 45 days -> Week, else Day
+        if daysDiff > 45 {
+            return generateWeeklyData()
+        } else {
+            return generateDailyData()
+        }
+    }
+    
+    private func generateDailyData() -> [SparklineDataPoint] {
+        let calendar = Calendar.current
+        var result: [SparklineDataPoint] = []
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "M.d EEE"
 
-        // Generate all dates in range
         var currentDay = dateRange.start
         while currentDay <= dateRange.end {
             let dayStart = calendar.startOfDay(for: currentDay)
@@ -212,34 +212,87 @@ struct ReviewView: View {
                 return calendar.isDate(date, inSameDayAs: dayStart)
             }.count
 
-            result.append(DailyCompletion(date: dayStart, count: completedCount))
+            result.append(SparklineDataPoint(
+                date: dayStart,
+                count: completedCount,
+                label: dateFormatter.string(from: dayStart)
+            ))
             guard let nextDay = calendar.date(byAdding: .day, value: 1, to: currentDay) else { break }
             currentDay = nextDay
         }
 
         return result
     }
+    
+    private func generateWeeklyData() -> [SparklineDataPoint] {
+        let calendar = Calendar.current
+        var result: [SparklineDataPoint] = []
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "M.d"
+        
+        // Find start of first week
+        // We use yearForWeekOfYear to ensure correct week boundaries
+        guard let firstWeekStart = calendar.date(from: calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: dateRange.start)) else {
+            return generateDailyData() // Fallback
+        }
+        
+        var currentWeekStart = firstWeekStart
+        // Add a buffer to end date to ensure we cover the last partial week
+        let endCutoff = dateRange.end
+        
+        while currentWeekStart <= endCutoff {
+            guard let currentWeekEnd = calendar.date(byAdding: .day, value: 6, to: currentWeekStart) else { break }
+            
+            // Adjust to display range if at boundaries
+            let displayStart = max(currentWeekStart, dateRange.start)
+            let displayEnd = min(currentWeekEnd, dateRange.end)
+            
+            // Skip weeks completely out of range
+            if displayStart > displayEnd {
+                guard let nextWeek = calendar.date(byAdding: .weekOfYear, value: 1, to: currentWeekStart) else { break }
+                currentWeekStart = nextWeek
+                continue
+            }
+            
+            // Count items in this week
+            let completedCount = weekItems.filter { item in
+                guard let date = item.assignedDate, item.isCompleted else { return false }
+                let dayStart = calendar.startOfDay(for: date)
+                return dayStart >= currentWeekStart && dayStart <= currentWeekEnd
+            }.count
+            
+            let label = "\(dateFormatter.string(from: displayStart))-\(dateFormatter.string(from: displayEnd))"
+            
+            result.append(SparklineDataPoint(
+                date: currentWeekStart,
+                count: completedCount,
+                label: label
+            ))
+            
+            guard let nextWeek = calendar.date(byAdding: .weekOfYear, value: 1, to: currentWeekStart) else { break }
+            currentWeekStart = nextWeek
+        }
+        
+        return result
+    }
 
     // MARK: - Header
 
     private var headerBar: some View {
-        HStack(spacing: 20) {
-            // Left: Title and date selector
+        HStack(alignment: .center, spacing: 20) {
+            // Left: Title and Date
             VStack(alignment: .leading, spacing: 4) {
                 Text("Review")
                     .font(.title2)
                     .fontWeight(.bold)
-
-                // Date range control
+                    .foregroundStyle(.primary)
+                
                 HStack(spacing: 8) {
                     Menu {
                         ForEach(DateRangePreset.allCases, id: \.self) { preset in
                             Button {
                                 withAnimation(.easeInOut(duration: 0.2)) {
                                     selectedPreset = preset
-                                    if preset == .custom {
-                                        showDatePicker = true
-                                    }
                                 }
                             } label: {
                                 HStack {
@@ -252,141 +305,81 @@ struct ReviewView: View {
                         }
                     } label: {
                         HStack(spacing: 4) {
-                            Image(systemName: "calendar")
-                                .font(.caption)
                             Text(selectedPreset.rawValue)
-                                .font(.caption)
+                                .font(.subheadline)
+                                .fontWeight(.medium)
                             Image(systemName: "chevron.down")
-                                .font(.system(size: 8, weight: .medium))
+                                .font(.caption2)
                         }
-                        .foregroundStyle(.secondary)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(Theme.Colors.breadcrumbBackground)
-                        .clipShape(RoundedRectangle(cornerRadius: 5))
+                        .foregroundStyle(.primary)
                     }
                     .menuStyle(.borderlessButton)
-
-                    // 具体日期范围 - 始终可见
-                    Text(dateRangeText)
-                        .font(.caption)
+                    
+                    Text("•")
                         .foregroundStyle(.tertiary)
-
-                    if selectedPreset == .custom {
-                        Button {
-                            showDatePicker.toggle()
-                        } label: {
-                            Image(systemName: "pencil")
-                                .font(.system(size: 10))
+                    
+                    Text(dateRangeText)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            
+            Spacer()
+            
+            // Right: Sparkline (compact) + Actions
+            HStack(spacing: 24) {
+                // Visualization
+                HStack(spacing: 12) {
+                    SparklineView(data: dailyCompletionData)
+                        .frame(width: 120, height: 24)
+                        .opacity(0.8)
+                    
+                    VStack(alignment: .leading, spacing: 0) {
+                        HStack(spacing: 2) {
+                            Text("\(weekItems.filter { $0.isCompleted }.count)")
+                                .fontWeight(.semibold)
+                                .foregroundStyle(Theme.Colors.todayAccent)
+                            Text("/\(weekItems.count)")
                                 .foregroundStyle(.secondary)
                         }
-                        .buttonStyle(.plain)
+                        .font(.caption)
                     }
                 }
-            }
-
-            Spacer()
-
-            // Center: Sparkline + Stats (核心成果区) - 底部对齐
-            HStack(alignment: .bottom, spacing: 24) {
-                // Sparkline 趋势图
-                SparklineView(data: dailyCompletionData)
-                    .frame(width: 100, height: 28)
-
-                // 核心统计 - Done 突出显示
-                HStack(alignment: .firstTextBaseline, spacing: 4) {
-                    Text("\(weekItems.filter { $0.isCompleted }.count)")
-                        .font(.system(size: 28, weight: .bold, design: .rounded))
-                        .foregroundStyle(.green)
-                        .fixedSize()
-
-                    VStack(alignment: .leading, spacing: 0) {
-                        Text("Done")
-                            .font(.caption2)
-                            .fontWeight(.medium)
-                            .foregroundStyle(.green)
-                        Text("of \(weekItems.count)")
-                            .font(.caption2)
-                            .foregroundStyle(.tertiary)
-                    }
-                    .fixedSize()
-                }
-            }
-            .fixedSize()
-
-            Spacer()
-
-            // Right: Actions
-            HStack(spacing: 12) {
-                Button {
-                    copyFullReport()
-                } label: {
-                    HStack(spacing: 4) {
+                
+                // Divider
+                Rectangle()
+                    .fill(Color.gray.opacity(0.2))
+                    .frame(width: 1, height: 24)
+                
+                // Actions
+                HStack(spacing: 12) {
+                    Button {
+                        copyFullReport()
+                    } label: {
                         Image(systemName: showCopyFeedback ? "checkmark" : "doc.on.doc")
-                            .font(.caption)
-                        Text(showCopyFeedback ? "Copied!" : "Copy")
-                            .font(.caption)
+                            .font(.system(size: 14))
+                            .foregroundStyle(showCopyFeedback ? .green : .secondary)
                     }
-                    .foregroundStyle(showCopyFeedback ? .green : .secondary)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 5)
-                    .background(Theme.Colors.breadcrumbBackground)
-                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                    .buttonStyle(.plain)
+                    .help("Copy Report")
+                    
+                    Button {
+                        dismiss()
+                    } label: {
+                        Text("Done")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(Color.primary.opacity(0.1))
+                            .clipShape(RoundedRectangle(cornerRadius: 6))
+                    }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
-                .animation(.easeInOut(duration: 0.2), value: showCopyFeedback)
-
-                Button("Done") {
-                    dismiss()
-                }
-                .keyboardShortcut(.cancelAction)
             }
         }
-        .padding(.horizontal, 20)
+        .padding(.horizontal, 24)
         .padding(.vertical, 16)
-        .popover(isPresented: $showDatePicker) {
-            datePickerPopover
-        }
-    }
-
-    // MARK: - Date Picker Popover
-
-    private var datePickerPopover: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Custom Date Range")
-                .font(.headline)
-
-            HStack(spacing: 16) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("From")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    DatePicker("", selection: $customStartDate, displayedComponents: .date)
-                        .labelsHidden()
-                        .datePickerStyle(.field)
-                }
-
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("To")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    DatePicker("", selection: $customEndDate, displayedComponents: .date)
-                        .labelsHidden()
-                        .datePickerStyle(.field)
-                }
-            }
-
-            HStack {
-                Spacer()
-                Button("Apply") {
-                    showDatePicker = false
-                }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.small)
-            }
-        }
-        .padding()
-        .frame(width: 280)
     }
 
     private var dateRangeText: String {
@@ -947,23 +940,18 @@ struct StatBadge: View {
 
 // MARK: - Daily Completion Data
 
-struct DailyCompletion: Identifiable {
+struct SparklineDataPoint: Identifiable {
     let id = UUID()
     let date: Date
     let count: Int
+    let label: String
 }
 
 // MARK: - Sparkline View
 
 struct SparklineView: View {
-    let data: [DailyCompletion]
+    let data: [SparklineDataPoint]
     @State private var hoveredIndex: Int?
-
-    private static let tooltipDateFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "M.d EEE"
-        return formatter
-    }()
 
     private var maxCount: Int {
         max(data.map { $0.count }.max() ?? 1, 1)
@@ -973,20 +961,21 @@ struct SparklineView: View {
         GeometryReader { geometry in
             let height = geometry.size.height
             let barCount = data.count
-            let spacing: CGFloat = 2
+            // Compressed spacing for denser data
+            let spacing: CGFloat = barCount > 30 ? 1.5 : 3
             let totalSpacing = CGFloat(barCount - 1) * spacing
-            let barWidth = max((geometry.size.width - totalSpacing) / CGFloat(barCount), 3)
+            let barWidth = max((geometry.size.width - totalSpacing) / CGFloat(barCount), 2)
 
             ZStack(alignment: .top) {
                 // Bars
                 HStack(alignment: .bottom, spacing: spacing) {
-                    ForEach(Array(data.enumerated()), id: \.offset) { index, daily in
+                    ForEach(Array(data.enumerated()), id: \.offset) { index, point in
                         let barHeight = maxCount > 0
-                            ? max(CGFloat(daily.count) / CGFloat(maxCount) * height, daily.count > 0 ? 6 : 3)
+                            ? max(CGFloat(point.count) / CGFloat(maxCount) * height, point.count > 0 ? 6 : 3)
                             : 3
 
                         SparklineBar(
-                            daily: daily,
+                            point: point,
                             barWidth: barWidth,
                             barHeight: barHeight,
                             maxCount: maxCount,
@@ -1002,12 +991,12 @@ struct SparklineView: View {
 
                 // Tooltip overlay
                 if let index = hoveredIndex, index < data.count {
-                    let daily = data[index]
+                    let point = data[index]
                     VStack(spacing: 1) {
-                        Text(Self.tooltipDateFormatter.string(from: daily.date))
+                        Text(point.label)
                             .font(.system(size: 9))
                             .foregroundStyle(.secondary)
-                        Text("\(daily.count)")
+                        Text("\(point.count)")
                             .font(.system(size: 11, weight: .semibold))
                     }
                     .padding(.horizontal, 6)
@@ -1024,7 +1013,7 @@ struct SparklineView: View {
 // MARK: - Sparkline Bar
 
 struct SparklineBar: View {
-    let daily: DailyCompletion
+    let point: SparklineDataPoint
     let barWidth: CGFloat
     let barHeight: CGFloat
     let maxCount: Int
@@ -1043,10 +1032,10 @@ struct SparklineBar: View {
     }
 
     private var barColor: Color {
-        if daily.count == 0 {
+        if point.count == 0 {
             return Color.secondary.opacity(isHovered ? 0.3 : 0.15)
         }
-        let intensity = 0.5 + 0.5 * Double(daily.count) / Double(maxCount)
+        let intensity = 0.5 + 0.5 * Double(point.count) / Double(maxCount)
         return Color.green.opacity(isHovered ? min(intensity + 0.2, 1.0) : intensity)
     }
 }
