@@ -1,5 +1,5 @@
 //
-//  WeeklyMatrixView.swift
+//  ReviewView.swift
 //  todaylist
 //
 //  Review Dashboard - Hierarchical Bento Dashboard
@@ -30,7 +30,7 @@ enum DateRangePreset: String, CaseIterable {
 
 // MARK: - Main View
 
-struct WeeklyMatrixView: View {
+struct ReviewView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
 
@@ -904,6 +904,6 @@ struct SparklineBar: View {
 // MARK: - Preview
 
 #Preview {
-    WeeklyMatrixView()
+    ReviewView()
         .modelContainer(for: [Item.self, ContextNode.self], inMemory: true)
 }
