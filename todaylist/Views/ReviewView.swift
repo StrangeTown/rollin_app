@@ -93,6 +93,17 @@ struct ReviewView: View {
         }) { $0.0 }.mapValues { $0.map { $0.1 } }
     }
     
+    // Items without any context (Inbox items)
+    private var inboxItems: [Item] {
+        weekItems.filter { $0.context == nil }
+            .sorted { ($0.completedAt ?? $0.timestamp) > ($1.completedAt ?? $1.timestamp) }
+    }
+    
+    // Check if there's any content to show
+    private var hasAnyContent: Bool {
+        !rootContextData.isEmpty || !inboxItems.isEmpty
+    }
+    
     // Build hierarchical data for each root context
     private var rootContextData: [RootContextData] {
         rootContexts.compactMap { root in
@@ -160,13 +171,19 @@ struct ReviewView: View {
             Divider()
             
             // Bento Grid
-            if rootContextData.isEmpty {
+            if !hasAnyContent {
                 Spacer()
                 emptyState
                 Spacer()
             } else {
                 ScrollView {
                     LazyVGrid(columns: columns, spacing: 16) {
+                        // Inbox card (tasks without context)
+                        if !inboxItems.isEmpty {
+                            InboxCard(items: inboxItems)
+                        }
+                        
+                        // Context cards
                         ForEach(rootContextData) { data in
                             RootContextCard(data: data) { contextData in
                                 copyContextReport(contextData)
@@ -409,6 +426,17 @@ struct ReviewView: View {
         lines.append("**Total:** \(weekItems.count) | **Done:** \(weekItems.filter { $0.isCompleted }.count)")
         lines.append("")
 
+        // Inbox items (no context)
+        if !inboxItems.isEmpty {
+            lines.append("## Inbox")
+            lines.append("")
+            for item in inboxItems {
+                let status = item.isCompleted ? "[x]" : "[ ]"
+                lines.append("- \(status) \(item.title)")
+            }
+            lines.append("")
+        }
+
         for data in rootContextData {
             lines.append(contentsOf: generateContextMarkdown(for: data))
         }
@@ -531,6 +559,126 @@ struct ChildContextData: Identifiable {
     
     var completedTaskCount: Int {
         tasks.filter { $0.isCompleted }.count + children.reduce(0) { $0 + $1.completedTaskCount }
+    }
+}
+
+// MARK: - Inbox Card (for tasks without context)
+
+struct InboxCard: View {
+    let items: [Item]
+    @State private var isHovered = false
+    @State private var showCopied = false
+    @State private var copyTask: Task<Void, Never>?
+    @State private var showAllTasks = false
+    private let maxVisibleTasks = 8
+    
+    private var visibleItems: [Item] {
+        showAllTasks ? items : Array(items.prefix(maxVisibleTasks))
+    }
+    
+    private var completedCount: Int {
+        items.filter { $0.isCompleted }.count
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // Header
+            HStack {
+                Image(systemName: "tray.fill")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+
+                Text("Inbox")
+                    .font(.headline)
+                    .fontWeight(.semibold)
+
+                Spacer()
+
+                // Copy button (shows on hover)
+                if isHovered || showCopied {
+                    Button {
+                        copyInboxReport()
+                        showCopied = true
+                        copyTask?.cancel()
+                        copyTask = Task {
+                            try? await Task.sleep(nanoseconds: 1_500_000_000)
+                            if !Task.isCancelled {
+                                showCopied = false
+                            }
+                        }
+                    } label: {
+                        Image(systemName: showCopied ? "checkmark" : "doc.on.doc")
+                            .font(.caption)
+                            .foregroundStyle(showCopied ? .green : .secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .transition(.opacity)
+                }
+
+                // Progress indicator
+                HStack(spacing: 3) {
+                    Text("\(completedCount)")
+                        .fontWeight(.semibold)
+                        .foregroundStyle(completedCount == items.count ? .green : .primary)
+                    Text("/")
+                        .foregroundStyle(.tertiary)
+                    Text("\(items.count)")
+                        .foregroundStyle(.secondary)
+                }
+                .font(.caption)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 3)
+                .background(Theme.Colors.breadcrumbBackground)
+                .clipShape(Capsule())
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .background(Color.orange.opacity(0.08))
+
+            // Content area
+            VStack(alignment: .leading, spacing: 6) {
+                ForEach(visibleItems) { item in
+                    TaskRow(item: item)
+                }
+                
+                // Show more button if needed
+                if items.count > maxVisibleTasks && !showAllTasks {
+                    ShowMoreButton(
+                        remainingCount: items.count - maxVisibleTasks,
+                        action: {
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                showAllTasks = true
+                            }
+                        }
+                    )
+                }
+            }
+            .padding(16)
+        }
+        .background(Color(nsColor: .windowBackgroundColor))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .shadow(color: Color.black.opacity(0.08), radius: 8, x: 0, y: 2)
+        .onHover { hovering in
+            withAnimation(.easeInOut(duration: 0.15)) {
+                isHovered = hovering
+            }
+        }
+    }
+    
+    private func copyInboxReport() {
+        var lines: [String] = []
+        lines.append("## Inbox")
+        lines.append("(\(completedCount)/\(items.count) completed)")
+        lines.append("")
+        
+        for item in items {
+            let status = item.isCompleted ? "[x]" : "[ ]"
+            lines.append("- \(status) \(item.title)")
+        }
+        
+        let markdown = lines.joined(separator: "\n")
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(markdown, forType: .string)
     }
 }
 
