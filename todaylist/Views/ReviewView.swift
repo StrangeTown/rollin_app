@@ -161,7 +161,9 @@ struct ReviewView: View {
             
             // Bento Grid
             if rootContextData.isEmpty {
+                Spacer()
                 emptyState
+                Spacer()
             } else {
                 ScrollView {
                     LazyVGrid(columns: columns, spacing: 16) {
