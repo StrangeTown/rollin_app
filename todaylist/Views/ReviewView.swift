@@ -212,14 +212,10 @@ struct ReviewView: View {
                             }
                         }
                     } label: {
-                        HStack(spacing: 4) {
-                            Text(selectedPreset.rawValue)
-                                .font(.subheadline)
-                                .fontWeight(.medium)
-                            Image(systemName: "chevron.down")
-                                .font(.caption2)
-                        }
-                        .foregroundStyle(.primary)
+                        Text(selectedPreset.rawValue)
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                            .foregroundStyle(.primary)
                     }
                     .menuStyle(.borderlessButton)
                     
