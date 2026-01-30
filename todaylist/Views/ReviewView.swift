@@ -231,48 +231,58 @@ struct ReviewView: View {
             Spacer()
             
             // Right: Actions
-            HStack(spacing: 12) {
-                // Feature Divider
-                Rectangle()
-                    .fill(Color.gray.opacity(0.2))
-                    .frame(width: 1, height: 24)
-                
-                // Stats Text
-                HStack(spacing: 4) {
+            HStack(spacing: 24) {
+                // Key Metric
+                HStack(alignment: .firstTextBaseline, spacing: 2) {
                     Text("\(weekItems.filter { $0.isCompleted }.count)")
-                        .fontWeight(.semibold)
-                        .foregroundStyle(Theme.Colors.todayAccent)
-                    Text("of")
-                        .foregroundStyle(.tertiary)
-                    Text("\(weekItems.count)")
-                        .foregroundStyle(.secondary)
-                    Text("Done")
-                        .foregroundStyle(.secondary)
-                }
-                .font(.subheadline)
-            
-                Button {
-                    copyFullReport()
-                } label: {
-                    Image(systemName: showCopyFeedback ? "checkmark" : "doc.on.doc")
-                        .font(.system(size: 14))
-                        .foregroundStyle(showCopyFeedback ? .green : .secondary)
-                }
-                .buttonStyle(.plain)
-                .help("Copy Report")
-                
-                Button {
-                    dismiss()
-                } label: {
-                    Text("Done")
-                        .font(.subheadline)
+                        .font(.title3)
                         .fontWeight(.medium)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
-                        .background(Color.primary.opacity(0.1))
-                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                        .foregroundStyle(Theme.Colors.todayAccent)
+                    
+                    Text("/")
+                        .font(.title3)
+                        .foregroundStyle(.tertiary)
+                        
+                    Text("\(weekItems.count)")
+                        .font(.title3)
+                        .fontWeight(.medium)
+                        .foregroundStyle(.secondary)
+                    
+                    Text("completed")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .padding(.leading, 4)
                 }
-                .buttonStyle(.plain)
+                
+                // Action Buttons
+                HStack(spacing: 12) {
+                    Button {
+                        copyFullReport()
+                    } label: {
+                        Image(systemName: showCopyFeedback ? "checkmark" : "doc.on.doc")
+                            .font(.system(size: 14))
+                            .foregroundStyle(showCopyFeedback ? .green : .primary.opacity(0.7))
+                            .frame(width: 32, height: 32)
+                            .background(Color.primary.opacity(0.05))
+                            .clipShape(Circle())
+                    }
+                    .buttonStyle(.plain)
+                    .help("Copy Report")
+                    
+                    Button {
+                        dismiss()
+                    } label: {
+                        Text("Done")
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                            .foregroundStyle(Theme.Colors.todayAccent)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 8)
+                            .background(Theme.Colors.todayAccent.opacity(0.1))
+                            .clipShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                }
             }
         }
         .padding(.horizontal, 24)
