@@ -184,98 +184,6 @@ struct ReviewView: View {
         .frame(minWidth: 700, minHeight: 500)
     }
     
-    // MARK: - Daily completion data for Sparkline
-
-    private var dailyCompletionData: [SparklineDataPoint] {
-        let calendar = Calendar.current
-        let daysDiff = calendar.dateComponents([.day], from: dateRange.start, to: dateRange.end).day ?? 0
-        
-        // Strategy: > 45 days -> Week, else Day
-        if daysDiff > 45 {
-            return generateWeeklyData()
-        } else {
-            return generateDailyData()
-        }
-    }
-    
-    private func generateDailyData() -> [SparklineDataPoint] {
-        let calendar = Calendar.current
-        var result: [SparklineDataPoint] = []
-        let dateFormatter = DateFormatter()
-        dateFormatter.dateFormat = "M.d EEE"
-
-        var currentDay = dateRange.start
-        while currentDay <= dateRange.end {
-            let dayStart = calendar.startOfDay(for: currentDay)
-            let completedCount = weekItems.filter { item in
-                guard let date = item.assignedDate, item.isCompleted else { return false }
-                return calendar.isDate(date, inSameDayAs: dayStart)
-            }.count
-
-            result.append(SparklineDataPoint(
-                date: dayStart,
-                count: completedCount,
-                label: dateFormatter.string(from: dayStart)
-            ))
-            guard let nextDay = calendar.date(byAdding: .day, value: 1, to: currentDay) else { break }
-            currentDay = nextDay
-        }
-
-        return result
-    }
-    
-    private func generateWeeklyData() -> [SparklineDataPoint] {
-        let calendar = Calendar.current
-        var result: [SparklineDataPoint] = []
-        let dateFormatter = DateFormatter()
-        dateFormatter.dateFormat = "M.d"
-        
-        // Find start of first week
-        // We use yearForWeekOfYear to ensure correct week boundaries
-        guard let firstWeekStart = calendar.date(from: calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: dateRange.start)) else {
-            return generateDailyData() // Fallback
-        }
-        
-        var currentWeekStart = firstWeekStart
-        // Add a buffer to end date to ensure we cover the last partial week
-        let endCutoff = dateRange.end
-        
-        while currentWeekStart <= endCutoff {
-            guard let currentWeekEnd = calendar.date(byAdding: .day, value: 6, to: currentWeekStart) else { break }
-            
-            // Adjust to display range if at boundaries
-            let displayStart = max(currentWeekStart, dateRange.start)
-            let displayEnd = min(currentWeekEnd, dateRange.end)
-            
-            // Skip weeks completely out of range
-            if displayStart > displayEnd {
-                guard let nextWeek = calendar.date(byAdding: .weekOfYear, value: 1, to: currentWeekStart) else { break }
-                currentWeekStart = nextWeek
-                continue
-            }
-            
-            // Count items in this week
-            let completedCount = weekItems.filter { item in
-                guard let date = item.assignedDate, item.isCompleted else { return false }
-                let dayStart = calendar.startOfDay(for: date)
-                return dayStart >= currentWeekStart && dayStart <= currentWeekEnd
-            }.count
-            
-            let label = "\(dateFormatter.string(from: displayStart))-\(dateFormatter.string(from: displayEnd))"
-            
-            result.append(SparklineDataPoint(
-                date: currentWeekStart,
-                count: completedCount,
-                label: label
-            ))
-            
-            guard let nextWeek = calendar.date(byAdding: .weekOfYear, value: 1, to: currentWeekStart) else { break }
-            currentWeekStart = nextWeek
-        }
-        
-        return result
-    }
-
     // MARK: - Header
 
     private var headerBar: some View {
@@ -326,56 +234,49 @@ struct ReviewView: View {
             
             Spacer()
             
-            // Right: Sparkline (compact) + Actions
-            HStack(spacing: 24) {
-                // Visualization
-                HStack(spacing: 12) {
-                    SparklineView(data: dailyCompletionData)
-                        .frame(width: 120, height: 24)
-                        .opacity(0.8)
-                    
-                    VStack(alignment: .leading, spacing: 0) {
-                        HStack(spacing: 2) {
-                            Text("\(weekItems.filter { $0.isCompleted }.count)")
-                                .fontWeight(.semibold)
-                                .foregroundStyle(Theme.Colors.todayAccent)
-                            Text("/\(weekItems.count)")
-                                .foregroundStyle(.secondary)
-                        }
-                        .font(.caption)
-                    }
-                }
-                
-                // Divider
+            // Right: Actions
+            HStack(spacing: 12) {
+                // Feature Divider
                 Rectangle()
                     .fill(Color.gray.opacity(0.2))
                     .frame(width: 1, height: 24)
                 
-                // Actions
-                HStack(spacing: 12) {
-                    Button {
-                        copyFullReport()
-                    } label: {
-                        Image(systemName: showCopyFeedback ? "checkmark" : "doc.on.doc")
-                            .font(.system(size: 14))
-                            .foregroundStyle(showCopyFeedback ? .green : .secondary)
-                    }
-                    .buttonStyle(.plain)
-                    .help("Copy Report")
-                    
-                    Button {
-                        dismiss()
-                    } label: {
-                        Text("Done")
-                            .font(.subheadline)
-                            .fontWeight(.medium)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 6)
-                            .background(Color.primary.opacity(0.1))
-                            .clipShape(RoundedRectangle(cornerRadius: 6))
-                    }
-                    .buttonStyle(.plain)
+                // Stats Text
+                HStack(spacing: 4) {
+                    Text("\(weekItems.filter { $0.isCompleted }.count)")
+                        .fontWeight(.semibold)
+                        .foregroundStyle(Theme.Colors.todayAccent)
+                    Text("of")
+                        .foregroundStyle(.tertiary)
+                    Text("\(weekItems.count)")
+                        .foregroundStyle(.secondary)
+                    Text("Done")
+                        .foregroundStyle(.secondary)
                 }
+                .font(.subheadline)
+            
+                Button {
+                    copyFullReport()
+                } label: {
+                    Image(systemName: showCopyFeedback ? "checkmark" : "doc.on.doc")
+                        .font(.system(size: 14))
+                        .foregroundStyle(showCopyFeedback ? .green : .secondary)
+                }
+                .buttonStyle(.plain)
+                .help("Copy Report")
+                
+                Button {
+                    dismiss()
+                } label: {
+                    Text("Done")
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(Color.primary.opacity(0.1))
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                }
+                .buttonStyle(.plain)
             }
         }
         .padding(.horizontal, 24)
@@ -935,108 +836,6 @@ struct StatBadge: View {
                 .font(.caption2)
                 .foregroundStyle(.secondary)
         }
-    }
-}
-
-// MARK: - Daily Completion Data
-
-struct SparklineDataPoint: Identifiable {
-    let id = UUID()
-    let date: Date
-    let count: Int
-    let label: String
-}
-
-// MARK: - Sparkline View
-
-struct SparklineView: View {
-    let data: [SparklineDataPoint]
-    @State private var hoveredIndex: Int?
-
-    private var maxCount: Int {
-        max(data.map { $0.count }.max() ?? 1, 1)
-    }
-
-    var body: some View {
-        GeometryReader { geometry in
-            let height = geometry.size.height
-            let barCount = data.count
-            // Compressed spacing for denser data
-            let spacing: CGFloat = barCount > 30 ? 1.5 : 3
-            let totalSpacing = CGFloat(barCount - 1) * spacing
-            let barWidth = max((geometry.size.width - totalSpacing) / CGFloat(barCount), 2)
-
-            ZStack(alignment: .top) {
-                // Bars
-                HStack(alignment: .bottom, spacing: spacing) {
-                    ForEach(Array(data.enumerated()), id: \.offset) { index, point in
-                        let barHeight = maxCount > 0
-                            ? max(CGFloat(point.count) / CGFloat(maxCount) * height, point.count > 0 ? 6 : 3)
-                            : 3
-
-                        SparklineBar(
-                            point: point,
-                            barWidth: barWidth,
-                            barHeight: barHeight,
-                            maxCount: maxCount,
-                            isHovered: hoveredIndex == index
-                        )
-                        .onHover { hovering in
-                            withAnimation(.easeInOut(duration: 0.1)) {
-                                hoveredIndex = hovering ? index : nil
-                            }
-                        }
-                    }
-                }
-
-                // Tooltip overlay
-                if let index = hoveredIndex, index < data.count {
-                    let point = data[index]
-                    VStack(spacing: 1) {
-                        Text(point.label)
-                            .font(.system(size: 9))
-                            .foregroundStyle(.secondary)
-                        Text("\(point.count)")
-                            .font(.system(size: 11, weight: .semibold))
-                    }
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 4)
-                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 4))
-                    .offset(y: -36)
-                    .transition(.opacity.combined(with: .scale(scale: 0.9)))
-                }
-            }
-        }
-    }
-}
-
-// MARK: - Sparkline Bar
-
-struct SparklineBar: View {
-    let point: SparklineDataPoint
-    let barWidth: CGFloat
-    let barHeight: CGFloat
-    let maxCount: Int
-    let isHovered: Bool
-
-    var body: some View {
-        // 使用 UnevenRoundedRectangle 实现顶部圆角
-        UnevenRoundedRectangle(
-            topLeadingRadius: 2,
-            bottomLeadingRadius: 0,
-            bottomTrailingRadius: 0,
-            topTrailingRadius: 2
-        )
-        .fill(barColor)
-        .frame(width: barWidth, height: isHovered ? barHeight + 2 : barHeight)
-    }
-
-    private var barColor: Color {
-        if point.count == 0 {
-            return Color.secondary.opacity(isHovered ? 0.3 : 0.15)
-        }
-        let intensity = 0.5 + 0.5 * Double(point.count) / Double(maxCount)
-        return Color.green.opacity(isHovered ? min(intensity + 0.2, 1.0) : intensity)
     }
 }
 
