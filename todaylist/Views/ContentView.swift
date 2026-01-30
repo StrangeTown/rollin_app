@@ -134,24 +134,6 @@ struct ContentView: View {
                             }
                         }
                     }
-                    
-                    // Empty state when all today's tasks are completed
-                    if allTodayTasksCompleted {
-                        Section {
-                            VStack(spacing: 12) {
-                                Text("🎉")
-                                    .font(.system(size: 48))
-                                Text("All done for today!")
-                                    .font(.headline)
-                                    .foregroundStyle(.secondary)
-                                Text("Great job! Enjoy your day.")
-                                    .font(.subheadline)
-                                    .foregroundStyle(.tertiary)
-                            }
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 24)
-                        }
-                    }
                 }
             }
         }
@@ -272,16 +254,6 @@ struct ContentView: View {
                     .foregroundStyle(.secondary)
             }
         }
-    }
-    
-    // Check if all today's tasks are completed
-    private var allTodayTasksCompleted: Bool {
-        let calendar = Calendar.current
-        let todayItems = scheduledItems.filter { item in
-            guard let date = item.assignedDate else { return false }
-            return calendar.isDate(date, inSameDayAs: currentDate)
-        }
-        return !todayItems.isEmpty && todayItems.allSatisfy { $0.isCompleted }
     }
 
     private func toggleCompletion(for item: Item) {
