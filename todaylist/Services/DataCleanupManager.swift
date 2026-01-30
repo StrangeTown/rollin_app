@@ -8,6 +8,7 @@ struct DataCleanupManager {
     ///   - daysToKeep: 保留多少天的数据（默认 30 天）
     /// - Returns: 清理了多少条数据
     @MainActor
+    @discardableResult
     static func cleanOldTasks(context: ModelContext, daysToKeep: Int = 30) -> Int {
         // 如果设置为 9999，则不清理
         if daysToKeep >= 9999 { return 0 }
