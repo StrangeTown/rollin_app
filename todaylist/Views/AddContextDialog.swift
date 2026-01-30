@@ -27,75 +27,76 @@ struct AddContextDialog: View {
                 }
             
             // MARK: - Dialog Container
-            VStack(alignment: .leading, spacing: 16) {
-                // Title
-                Text("New Context")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(.primary)
-                
-                // Parent breadcrumb (if adding child)
-                if let parent = parent {
-                    HStack(spacing: 4) {
-                        Image(systemName: Theme.Icons.folder)
-                            .font(.caption)
-                        Text("Adding to: \(parent.name)")
-                            .font(.caption)
+            VStack(alignment: .leading, spacing: 20) {
+                // 1. Large Input
+                TextField("New Context Name", text: $contextName)
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 24, weight: .medium))
+                    .focused($isFocused)
+                    .onSubmit {
+                        if !contextName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                            onAdd(contextName)
+                            dismiss()
+                        }
                     }
-                    .foregroundStyle(.secondary)
-                }
                 
-                // MARK: - Custom Input Field (Full Width)
-                HStack(spacing: 8) {
-                    Image(systemName: Theme.Icons.folder)
-                        .foregroundStyle(.secondary)
-                        .frame(width: 16)
-                    
-                    TextField("Context Name", text: $contextName)
-                        .textFieldStyle(.plain)
-                        .focused($isFocused)
+                // 2. Metadata Pill (Parent Context)
+                if let parent = parent {
+                    HStack(spacing: 6) {
+                        Image(systemName: "arrow.turn.down.right")
+                            .font(.caption)
+                        Image(systemName: Theme.Icons.folder)
+                            .font(.subheadline)
+                        Text(parent.name)
+                            .font(.subheadline)
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(Color.gray.opacity(0.15))
+                    .clipShape(Capsule())
+                    .foregroundStyle(.secondary)
+                } else {
+                    // Show "Root Context" indicator if no parent
+                    Text("Top Level Context")
+                        .font(.subheadline)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(Color.gray.opacity(0.1))
+                        .clipShape(Capsule())
+                        .foregroundStyle(.tertiary)
                 }
-                .padding(.horizontal, 12)
-                .frame(height: 36)
-                .frame(maxWidth: .infinity)
-                .background(Color(nsColor: .controlBackgroundColor))
-                .clipShape(RoundedRectangle(cornerRadius: 10))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 10)
-                        .stroke(isFocused ? Color.accentColor : Color.primary.opacity(0.1), lineWidth: isFocused ? 2 : 1)
-                )
                 
                 Spacer()
-                    .frame(height: 8)
                 
-                // MARK: - Action Buttons (Right-aligned)
-                HStack(spacing: 12) {
-                    Spacer()
-                    
+                // 3. Action Buttons
+                HStack {
                     Button("Cancel") {
                         dismiss()
                     }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(.secondary)
                     .keyboardShortcut(.cancelAction)
+                    .controlSize(.large)
                     
-                    Button("Add") {
+                    Spacer()
+                    
+                    Button("Create") {
                         onAdd(contextName)
                         dismiss()
                     }
                     .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
                     .keyboardShortcut(.defaultAction)
                     .disabled(contextName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
             }
-            .padding(30)
-            .frame(width: 440)
-            .background(.regularMaterial)
-            .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.dialog))
+            .padding(24)
+            .frame(width: 500, height: 200)
+            .background(Color(nsColor: .windowBackgroundColor))
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .shadow(color: .black.opacity(0.2), radius: 20, y: 10)
             .overlay(
-                RoundedRectangle(cornerRadius: Theme.CornerRadius.dialog)
-                    .stroke(Color.white.opacity(0.2), lineWidth: 0.5)
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(Color.primary.opacity(0.1), lineWidth: 1)
             )
-            .shadow(color: .black.opacity(0.25), radius: 30, y: 15)
         }
         .onAppear {
             // Reset state on appear for clean slate each time
