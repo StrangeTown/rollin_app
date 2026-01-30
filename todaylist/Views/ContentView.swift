@@ -60,6 +60,10 @@ struct ContentView: View {
     }()
 
     var body: some View {
+        // Cache computed data to avoid redundant calculations
+        let grouped = groupedItems
+        let sortedDates = grouped.keys.sorted(by: >)
+        
         NavigationSplitView(columnVisibility: $columnVisibility) {
             // MARK: - Sidebar (Inbox)
             List {
@@ -84,7 +88,7 @@ struct ContentView: View {
                 if scheduledItems.isEmpty {
                     ContentUnavailableView("No scheduled tasks", systemImage: "calendar", description: Text("Move tasks from Inbox to plan your day."))
                 } else {
-                    ForEach(groupedItems.keys.sorted(by: >), id: \.self) { date in
+                    ForEach(sortedDates, id: \.self) { date in
                         // Group tasks by date (Today, Yesterday, etc.)
                         Section(header: 
                             HStack {
@@ -110,7 +114,7 @@ struct ContentView: View {
                                 }
                             }
                         ) {
-                            ForEach(groupedItems[date]!) { item in
+                            ForEach(grouped[date]!) { item in
                                 TaskRowView(
                                     item: item,
                                     onToggleCompletion: { toggleCompletion(for: item) },
@@ -126,7 +130,7 @@ struct ContentView: View {
                                 .listRowInsets(EdgeInsets(top: Theme.Spacing.listItemVertical, leading: 0, bottom: Theme.Spacing.listItemVertical, trailing: 0))
                             }
                             .onDelete { offsets in
-                                deleteScheduledItems(at: offsets, in: groupedItems[date]!)
+                                deleteScheduledItems(at: offsets, in: grouped[date]!)
                             }
                         }
                     }
