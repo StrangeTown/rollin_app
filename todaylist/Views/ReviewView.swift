@@ -62,85 +62,14 @@ struct ReviewView: View {
         return (start, today)
     }
     
-    // Filter items within the week
-    private var weekItems: [Item] {
-        let calendar = Calendar.current
-        return allScheduledItems.filter { item in
-            guard let date = item.assignedDate else { return false }
-            let dayStart = calendar.startOfDay(for: date)
-            return dayStart >= dateRange.start && dayStart <= dateRange.end
-        }
-    }
+    // MARK: - Optimized Computed Data (Single Pass)
     
-    // Group items by context ID for quick lookup
-    private var itemsByContextId: [UUID: [Item]] {
-        Dictionary(grouping: weekItems.compactMap { item -> (UUID, Item)? in
-            guard let context = item.context else { return nil }
-            return (context.id, item)
-        }) { $0.0 }.mapValues { $0.map { $0.1 } }
-    }
-    
-    // Items without any context (Inbox items)
-    private var inboxItems: [Item] {
-        weekItems.filter { $0.context == nil }
-            .sorted { ($0.completedAt ?? $0.timestamp) > ($1.completedAt ?? $1.timestamp) }
-    }
-    
-    // Check if there's any content to show
-    private var hasAnyContent: Bool {
-        !rootContextData.isEmpty || !inboxItems.isEmpty
-    }
-    
-    // Build hierarchical data for each root context
-    private var rootContextData: [RootContextData] {
-        rootContexts.compactMap { root in
-            let data = buildContextData(for: root)
-            // Only include if there are any tasks
-            if data.hasAnyTasks {
-                return data
-            }
-            return nil
-        }
-    }
-    
-    private func buildContextData(for context: ContextNode) -> RootContextData {
-        let directTasks = itemsByContextId[context.id] ?? []
-        
-        var childrenData: [ChildContextData] = []
-        if let children = context.children {
-            for child in children.sorted(by: { $0.name < $1.name }) {
-                let childData = buildChildData(for: child)
-                if childData.hasAnyTasks {
-                    childrenData.append(childData)
-                }
-            }
-        }
-        
-        return RootContextData(
-            context: context,
-            directTasks: directTasks.sorted { ($0.completedAt ?? $0.timestamp) > ($1.completedAt ?? $1.timestamp) },
-            children: childrenData
-        )
-    }
-    
-    private func buildChildData(for context: ContextNode, depth: Int = 1) -> ChildContextData {
-        let tasks = itemsByContextId[context.id] ?? []
-        
-        var nestedChildren: [ChildContextData] = []
-        if let children = context.children {
-            for child in children.sorted(by: { $0.name < $1.name }) {
-                let childData = buildChildData(for: child, depth: depth + 1)
-                if childData.hasAnyTasks {
-                    nestedChildren.append(childData)
-                }
-            }
-        }
-        
-        return ChildContextData(
-            context: context,
-            tasks: tasks.sorted { ($0.completedAt ?? $0.timestamp) > ($1.completedAt ?? $1.timestamp) },
-            children: nestedChildren,
-            depth: depth
+    /// All computed data in a single pass for better performance
+    private var computedData: ComputedReviewData {
+        ComputedReviewData(
+            allItems: allScheduledItems,
+            rootContexts: rootContexts,
+            dateRange: dateRange
         )
     }
     
@@ -151,14 +80,17 @@ struct ReviewView: View {
     ]
     
     var body: some View {
+        // Capture computed data once per render
+        let data = computedData
+        
         VStack(spacing: 0) {
             // Header bar
-            headerBar
+            headerBar(data: data)
             
             Divider()
             
             // Bento Grid
-            if !hasAnyContent {
+            if !data.hasAnyContent {
                 Spacer()
                 emptyState
                 Spacer()
@@ -166,14 +98,14 @@ struct ReviewView: View {
                 ScrollView {
                     LazyVGrid(columns: columns, spacing: 16) {
                         // Inbox card (tasks without context)
-                        if !inboxItems.isEmpty {
-                            InboxCard(items: inboxItems)
+                        if !data.inboxItems.isEmpty {
+                            InboxCard(items: data.inboxItems)
                         }
                         
                         // Context cards
-                        ForEach(rootContextData) { data in
-                            RootContextCard(data: data) { contextData in
-                                copyContextReport(contextData)
+                        ForEach(data.rootContextData) { contextData in
+                            RootContextCard(data: contextData) { copiedData in
+                                copyContextReport(copiedData)
                             }
                         }
                     }
@@ -186,7 +118,7 @@ struct ReviewView: View {
     
     // MARK: - Header
 
-    private var headerBar: some View {
+    private func headerBar(data: ComputedReviewData) -> some View {
         HStack(alignment: .center, spacing: 20) {
             // Left: Title and Date
             VStack(alignment: .leading, spacing: 4) {
@@ -234,7 +166,7 @@ struct ReviewView: View {
             HStack(spacing: 24) {
                 // Key Metric
                 HStack(alignment: .firstTextBaseline, spacing: 2) {
-                    Text("\(weekItems.filter { $0.isCompleted }.count)")
+                    Text("\(data.completedCount)")
                         .font(.title3)
                         .fontWeight(.medium)
                         .foregroundStyle(Theme.Colors.todayAccent)
@@ -243,7 +175,7 @@ struct ReviewView: View {
                         .font(.title3)
                         .foregroundStyle(.tertiary)
                         
-                    Text("\(weekItems.count)")
+                    Text("\(data.totalCount)")
                         .font(.title3)
                         .fontWeight(.medium)
                         .foregroundStyle(.secondary)
@@ -319,26 +251,27 @@ struct ReviewView: View {
     }
 
     private func generateFullReportMarkdown() -> String {
+        let data = computedData
         var lines: [String] = []
         lines.append("# Review")
         lines.append("\(dateRangeText)")
         lines.append("")
-        lines.append("**Total:** \(weekItems.count) | **Done:** \(weekItems.filter { $0.isCompleted }.count)")
+        lines.append("**Total:** \(data.totalCount) | **Done:** \(data.completedCount)")
         lines.append("")
 
         // Inbox items (no context)
-        if !inboxItems.isEmpty {
+        if !data.inboxItems.isEmpty {
             lines.append("## Inbox")
             lines.append("")
-            for item in inboxItems {
+            for item in data.inboxItems {
                 let status = item.isCompleted ? "[x]" : "[ ]"
                 lines.append("- \(status) \(item.title)")
             }
             lines.append("")
         }
 
-        for data in rootContextData {
-            lines.append(contentsOf: generateContextMarkdown(for: data))
+        for contextData in data.rootContextData {
+            lines.append(contentsOf: generateContextMarkdown(for: contextData))
         }
 
         return lines.joined(separator: "\n")
@@ -403,6 +336,100 @@ struct ReviewView: View {
         let markdown = generateContextOnlyMarkdown(for: data)
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(markdown, forType: .string)
+    }
+}
+
+// MARK: - Computed Review Data (Performance Optimized)
+
+/// Aggregates all computed data in a single pass to avoid redundant calculations
+struct ComputedReviewData {
+    let weekItems: [Item]
+    let inboxItems: [Item]
+    let rootContextData: [RootContextData]
+    let completedCount: Int
+    let totalCount: Int
+    
+    var hasAnyContent: Bool {
+        !rootContextData.isEmpty || !inboxItems.isEmpty
+    }
+    
+    init(allItems: [Item], rootContexts: [ContextNode], dateRange: (start: Date, end: Date)) {
+        let calendar = Calendar.current
+        
+        // Single pass: filter by date range and group by context
+        var filtered: [Item] = []
+        var byContextId: [UUID: [Item]] = [:]
+        var inbox: [Item] = []
+        var completed = 0
+        
+        for item in allItems {
+            guard let date = item.assignedDate else { continue }
+            let dayStart = calendar.startOfDay(for: date)
+            guard dayStart >= dateRange.start && dayStart <= dateRange.end else { continue }
+            
+            filtered.append(item)
+            if item.isCompleted { completed += 1 }
+            
+            if let context = item.context {
+                byContextId[context.id, default: []].append(item)
+            } else {
+                inbox.append(item)
+            }
+        }
+        
+        self.weekItems = filtered
+        self.completedCount = completed
+        self.totalCount = filtered.count
+        self.inboxItems = inbox.sorted { ($0.completedAt ?? $0.timestamp) > ($1.completedAt ?? $1.timestamp) }
+        
+        // Build hierarchical context data
+        self.rootContextData = rootContexts.compactMap { root in
+            let data = Self.buildContextData(for: root, itemsByContextId: byContextId)
+            return data.hasAnyTasks ? data : nil
+        }
+    }
+    
+    // MARK: - Hierarchy Building (Static Methods)
+    
+    private static func buildContextData(for context: ContextNode, itemsByContextId: [UUID: [Item]]) -> RootContextData {
+        let directTasks = itemsByContextId[context.id] ?? []
+        
+        var childrenData: [ChildContextData] = []
+        if let children = context.children {
+            for child in children.sorted(by: { $0.name < $1.name }) {
+                let childData = buildChildData(for: child, itemsByContextId: itemsByContextId)
+                if childData.hasAnyTasks {
+                    childrenData.append(childData)
+                }
+            }
+        }
+        
+        return RootContextData(
+            context: context,
+            directTasks: directTasks.sorted { ($0.completedAt ?? $0.timestamp) > ($1.completedAt ?? $1.timestamp) },
+            children: childrenData
+        )
+    }
+    
+    private static func buildChildData(for context: ContextNode, itemsByContextId: [UUID: [Item]], depth: Int = 1) -> ChildContextData {
+        let tasks = itemsByContextId[context.id] ?? []
+        
+        var nestedChildren: [ChildContextData] = []
+        if let children = context.children {
+            for child in children.sorted(by: { $0.name < $1.name }) {
+                let childData = buildChildData(for: child, itemsByContextId: itemsByContextId, depth: depth + 1)
+                if childData.hasAnyTasks {
+                    nestedChildren.append(childData)
+                }
+            }
+        }
+        
+        return ChildContextData(
+            context: context,
+            tasks: tasks.sorted { ($0.completedAt ?? $0.timestamp) > ($1.completedAt ?? $1.timestamp) },
+            children: nestedChildren,
+            depth: depth
+        )
     }
 }
 
