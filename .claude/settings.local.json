@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__ide__getDiagnostics",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nfeat: 添加 Context 右键菜单「Move to Front」功能，支持将 context 置顶\n\n新增 SchemaV3 为 ContextNode 添加 sortOrder 字段，侧边栏按 sortOrder 排序，\n右键菜单新增 Move to Front 选项将目标节点移至同级最前。\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\nEOF\n\\)\")"
+    ]
+  }
+}

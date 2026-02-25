@@ -10,12 +10,13 @@ import SwiftData
 
 struct ContextPickerView: View {
     @Environment(\.dismiss) private var dismiss
-    @Query(sort: \ContextNode.name)
+    @Query(sort: \ContextNode.sortOrder)
     private var allContexts: [ContextNode]
     
     @Binding var selectedContext: ContextNode?
     @State private var searchText = ""
-    
+    @State private var expandedNodes: Set<UUID> = []
+
     private var displayedContexts: [FlatContextNode] {
         if searchText.isEmpty {
             let roots = allContexts.filter { $0.parent == nil }
@@ -26,13 +27,13 @@ struct ContextPickerView: View {
                 .map { FlatContextNode(node: $0, level: 0) }
         }
     }
-    
+
     private func flatten(_ nodes: [ContextNode], level: Int = 0) -> [FlatContextNode] {
         var result: [FlatContextNode] = []
         for node in nodes {
             result.append(FlatContextNode(node: node, level: level))
-            if let children = node.children {
-                let sortedChildren = children.sorted { $0.name < $1.name }
+            if let children = node.children, !children.isEmpty, expandedNodes.contains(node.id) {
+                let sortedChildren = children.sorted { ($0.sortOrder, $0.name) < ($1.sortOrder, $1.name) }
                 result.append(contentsOf: flatten(sortedChildren, level: level + 1))
             }
         }
@@ -68,12 +69,35 @@ struct ContextPickerView: View {
             Divider()
             
             ForEach(displayedContexts) { item in
-                ContextPickerRow(item: item, isSelected: selectedContext == item.node)
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        selectedContext = item.node
-                        dismiss()
+                HStack(spacing: 0) {
+                    // Expand/collapse toggle for parent nodes
+                    if let children = item.node.children, !children.isEmpty {
+                        Button {
+                            withAnimation(.easeInOut(duration: 0.15)) {
+                                if expandedNodes.contains(item.node.id) {
+                                    expandedNodes.remove(item.node.id)
+                                } else {
+                                    expandedNodes.insert(item.node.id)
+                                }
+                            }
+                        } label: {
+                            Image(systemName: expandedNodes.contains(item.node.id) ? "chevron.down" : "chevron.right")
+                                .font(.system(size: 10, weight: .semibold))
+                                .foregroundStyle(.secondary)
+                                .frame(width: 20, height: 20)
+                        }
+                        .buttonStyle(.plain)
+                    } else {
+                        Spacer().frame(width: 20)
                     }
+
+                    ContextPickerRow(item: item, isSelected: selectedContext == item.node)
+                }
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    selectedContext = item.node
+                    dismiss()
+                }
             }
         }
         .searchable(text: $searchText, placement: .sidebar, prompt: "Search contexts...")
