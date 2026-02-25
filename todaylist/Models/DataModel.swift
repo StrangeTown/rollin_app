@@ -12,16 +12,21 @@ import SwiftData
 
 enum DataMigrationPlan: SchemaMigrationPlan {
     static var schemas: [any VersionedSchema.Type] {
-        [SchemaV1.self, SchemaV2.self]
+        [SchemaV1.self, SchemaV2.self, SchemaV3.self]
     }
-    
+
     static var stages: [MigrationStage] {
-        [migrateV1toV2]
+        [migrateV1toV2, migrateV2toV3]
     }
-    
+
     static let migrateV1toV2 = MigrationStage.lightweight(
         fromVersion: SchemaV1.self,
         toVersion: SchemaV2.self
+    )
+
+    static let migrateV2toV3 = MigrationStage.lightweight(
+        fromVersion: SchemaV2.self,
+        toVersion: SchemaV3.self
     )
 }
 
@@ -113,6 +118,66 @@ enum SchemaV2: VersionedSchema {
     }
 }
 
+// MARK: - Schema V3 (Current)
+
+enum SchemaV3: VersionedSchema {
+    static var versionIdentifier = Schema.Version(3, 0, 0)
+
+    static var models: [any PersistentModel.Type] {
+        [Item.self, ContextNode.self]
+    }
+
+    @Model
+    final class Item {
+        var title: String = ""
+        var timestamp: Date = Date()
+        var isCompleted: Bool = false
+        var isToday: Bool = false
+        var assignedDate: Date? = nil
+        var completedAt: Date? = nil
+
+        // New relationship
+        var context: ContextNode?
+
+        init(title: String = "", timestamp: Date = Date(), isCompleted: Bool = false, isToday: Bool = false, assignedDate: Date? = nil, completedAt: Date? = nil, context: ContextNode? = nil) {
+            self.title = title
+            self.timestamp = timestamp
+            self.isCompleted = isCompleted
+            self.isToday = isToday
+            self.assignedDate = assignedDate
+            self.completedAt = completedAt
+            self.context = context
+        }
+    }
+
+    @Model
+    final class ContextNode {
+        var name: String = ""
+        var id: UUID = UUID()
+        var sortOrder: Int = 0
+
+        var parent: ContextNode?
+        @Relationship(deleteRule: .cascade, inverse: \ContextNode.parent)
+        var children: [ContextNode]? = []
+
+        @Relationship(deleteRule: .nullify, inverse: \Item.context)
+        var items: [Item]? = []
+
+        init(name: String, parent: ContextNode? = nil) {
+            self.name = name
+            self.parent = parent
+        }
+
+        var fullPath: String {
+            if let parent = parent {
+                return parent.fullPath + " / " + name
+            } else {
+                return name
+            }
+        }
+    }
+}
+
 // Typealiases for easy access to the latest version
-typealias Item = SchemaV2.Item
-typealias ContextNode = SchemaV2.ContextNode
+typealias Item = SchemaV3.Item
+typealias ContextNode = SchemaV3.ContextNode

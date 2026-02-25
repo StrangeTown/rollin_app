@@ -26,7 +26,7 @@ struct ContentView: View {
     private var scheduledItems: [Item]
     
     // Fetch root contexts
-    @Query(filter: #Predicate<ContextNode> { $0.parent == nil }, sort: \ContextNode.name)
+    @Query(filter: #Predicate<ContextNode> { $0.parent == nil }, sort: \ContextNode.sortOrder)
     private var rootContexts: [ContextNode]
     
     @State private var selectedContext: ContextNode?
@@ -327,6 +327,18 @@ struct ContentView: View {
             selectedContext = nil
         }
     }
+
+    func moveContextToFront(_ context: ContextNode) {
+        // Find siblings: same parent level
+        let siblings: [ContextNode]
+        if let parent = context.parent {
+            siblings = parent.children ?? []
+        } else {
+            siblings = rootContexts
+        }
+        let minOrder = siblings.map(\.sortOrder).min() ?? 0
+        context.sortOrder = minOrder - 1
+    }
     
     // MARK: - View Builders
     
@@ -388,7 +400,8 @@ struct ContentView: View {
                     selectedContext: $selectedContext,
                     contextParentForAdd: $contextParentForAdd,
                     showAddContextAlert: $showAddContextAlert,
-                    onDelete: deleteContext
+                    onDelete: deleteContext,
+                    onMoveToFront: moveContextToFront
                 )
             }
         }
@@ -437,16 +450,18 @@ struct ContextTreeRow: View {
     @Binding var contextParentForAdd: ContextNode?
     @Binding var showAddContextAlert: Bool
     let onDelete: (ContextNode) -> Void
+    let onMoveToFront: (ContextNode) -> Void
 
     @State private var isHovering = false
 
-    init(node: ContextNode, depth: Int = 0, selectedContext: Binding<ContextNode?>, contextParentForAdd: Binding<ContextNode?>, showAddContextAlert: Binding<Bool>, onDelete: @escaping (ContextNode) -> Void) {
+    init(node: ContextNode, depth: Int = 0, selectedContext: Binding<ContextNode?>, contextParentForAdd: Binding<ContextNode?>, showAddContextAlert: Binding<Bool>, onDelete: @escaping (ContextNode) -> Void, onMoveToFront: @escaping (ContextNode) -> Void) {
         self.node = node
         self.depth = depth
         _selectedContext = selectedContext
         _contextParentForAdd = contextParentForAdd
         _showAddContextAlert = showAddContextAlert
         self.onDelete = onDelete
+        self.onMoveToFront = onMoveToFront
     }
 
     private var hasChildren: Bool {
@@ -462,14 +477,15 @@ struct ContextTreeRow: View {
             // 有子节点：使用 DisclosureGroup
             DisclosureGroup {
                 if let children = node.children {
-                    ForEach(children.sorted(by: { $0.name < $1.name }), id: \.id) { childNode in
+                    ForEach(children.sorted(by: { ($0.sortOrder, $0.name) < ($1.sortOrder, $1.name) }), id: \.id) { childNode in
                         ContextTreeRow(
                             node: childNode,
                             depth: depth + 1,
                             selectedContext: $selectedContext,
                             contextParentForAdd: $contextParentForAdd,
                             showAddContextAlert: $showAddContextAlert,
-                            onDelete: onDelete
+                            onDelete: onDelete,
+                            onMoveToFront: onMoveToFront
                         )
                         .padding(.leading, Theme.Spacing.childIndent)
                     }
@@ -518,6 +534,9 @@ struct ContextTreeRow: View {
         }
         .onHover { isHovering = $0 }
         .contextMenu {
+            Button("Move to Front") {
+                onMoveToFront(node)
+            }
             Button("Add Child Context") {
                 contextParentForAdd = node
                 withAnimation(Theme.Animation.dialog) {
@@ -621,6 +640,6 @@ struct ContextDetailView: View {
 
 #Preview {
     ContentView()
-        .modelContainer(for: Item.self, inMemory: true)
+        .modelContainer(for: [Item.self, ContextNode.self], inMemory: true)
 }
 
