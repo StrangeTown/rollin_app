@@ -6,11 +6,24 @@ struct AddTaskView: View {
     @Environment(\.modelContext) private var modelContext
     
     var assignedDate: Date? = nil
-    
+
+    @Query(sort: \ContextNode.sortOrder) private var allContexts: [ContextNode]
+
     @State private var title = ""
     @State private var selectedContext: ContextNode?
     @State private var showContextPicker = false
     @FocusState private var isFocused: Bool
+
+    private var recentContexts: [ContextNode] {
+        let ids = RecentContextsManager.recentIDs
+        let selectedID = selectedContext?.id
+        return ids.compactMap { id in
+            allContexts.first { $0.id == id }
+        }
+        .filter { $0.id != selectedID }
+        .prefix(3)
+        .map { $0 }
+    }
     
     var body: some View {
         NavigationStack {
@@ -24,40 +37,62 @@ struct AddTaskView: View {
                     .padding(.horizontal, 2)
                 
                 // 2. Metadata Row (Pills)
-                HStack(spacing: 12) {
-                    // Context Pill
-                    Button {
-                        showContextPicker = true
-                    } label: {
-                        HStack(spacing: 6) {
-                            Image(systemName: Theme.Icons.folder)
-                                .font(.subheadline)
-                            Text(selectedContext?.name ?? "Inbox")
-                                .font(.subheadline)
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 12) {
+                        // Context Pill
+                        Button {
+                            showContextPicker = true
+                        } label: {
+                            HStack(spacing: 6) {
+                                Image(systemName: Theme.Icons.folder)
+                                    .font(.subheadline)
+                                Text(selectedContext?.name ?? "Inbox")
+                                    .font(.subheadline)
+                            }
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .background(Color.gray.opacity(0.15))
+                            .clipShape(Capsule())
+                            .foregroundStyle(.primary)
                         }
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(Color.gray.opacity(0.15))
-                        .clipShape(Capsule())
-                        .foregroundStyle(.primary)
-                    }
-                    .buttonStyle(.plain)
-                    .popover(isPresented: $showContextPicker, arrowEdge: .bottom) {
-                        ContextPickerView(selectedContext: $selectedContext)
-                    }
-                    
-                    // Date Pill (if applicable)
-                    if assignedDate != nil {
-                        HStack(spacing: 6) {
-                            Image(systemName: Theme.Icons.calendar)
-                            Text("Today")
+                        .buttonStyle(.plain)
+                        .popover(isPresented: $showContextPicker, arrowEdge: .bottom) {
+                            ContextPickerView(selectedContext: $selectedContext)
                         }
-                        .font(.subheadline)
-                        .foregroundStyle(.orange)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(Color.orange.opacity(0.1))
-                        .clipShape(Capsule())
+
+                        // Recent Context Pills
+                        ForEach(recentContexts, id: \.id) { ctx in
+                            Button {
+                                selectedContext = ctx
+                            } label: {
+                                HStack(spacing: 6) {
+                                    Image(systemName: Theme.Icons.folder)
+                                        .font(.subheadline)
+                                    Text(ctx.name)
+                                        .font(.subheadline)
+                                }
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 6)
+                                .background(Color.gray.opacity(0.08))
+                                .clipShape(Capsule())
+                                .foregroundStyle(.secondary)
+                            }
+                            .buttonStyle(.plain)
+                        }
+
+                        // Date Pill (if applicable)
+                        if assignedDate != nil {
+                            HStack(spacing: 6) {
+                                Image(systemName: Theme.Icons.calendar)
+                                Text("Today")
+                            }
+                            .font(.subheadline)
+                            .foregroundStyle(.orange)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .background(Color.orange.opacity(0.1))
+                            .clipShape(Capsule())
+                        }
                     }
                 }
                 
@@ -93,7 +128,11 @@ struct AddTaskView: View {
     private func addTask() {
         let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedTitle.isEmpty else { return }
-        
+
+        if let ctx = selectedContext {
+            RecentContextsManager.record(ctx.id)
+        }
+
         let newItem = Item(title: trimmedTitle, assignedDate: assignedDate, context: selectedContext)
         modelContext.insert(newItem)
         dismiss()
