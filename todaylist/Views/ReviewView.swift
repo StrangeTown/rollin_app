@@ -40,10 +40,6 @@ struct ReviewView: View {
     @Query(filter: #Predicate<Item> { $0.assignedDate != nil })
     private var allScheduledItems: [Item]
 
-    // Copy feedback state
-    @State private var showCopyFeedback = false
-    @State private var copyFeedbackTask: Task<Void, Never>?
-
     // Date range selection
     @State private var selectedPreset: DateRangePreset = .week
 
@@ -114,10 +110,6 @@ struct ReviewView: View {
             }
         }
         .frame(minWidth: 700, minHeight: 500)
-        .onDisappear {
-            copyFeedbackTask?.cancel()
-            copyFeedbackTask = nil
-        }
     }
     
     // MARK: - Header
@@ -192,18 +184,14 @@ struct ReviewView: View {
                 
                 // Action Buttons
                 HStack(spacing: 12) {
-                    Button {
-                        copyFullReport()
-                    } label: {
-                        Image(systemName: showCopyFeedback ? "checkmark" : "doc.on.doc")
-                            .font(.system(size: 14))
-                            .foregroundStyle(showCopyFeedback ? .green : .primary.opacity(0.7))
-                            .frame(width: 32, height: 32)
-                            .background(Color.primary.opacity(0.05))
-                            .clipShape(Circle())
-                    }
-                    .buttonStyle(.plain)
-                    .help("Copy Report")
+                    CopyFeedbackButton(
+                        isHovered: true,
+                        helpText: "Copy Report",
+                        iconFont: .system(size: 14),
+                        idleColor: .primary.opacity(0.7),
+                        useCircleBackground: true,
+                        action: copyFullReport
+                    )
                     
                     Button {
                         dismiss()
@@ -243,15 +231,6 @@ struct ReviewView: View {
         let markdown = generateFullReportMarkdown()
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(markdown, forType: .string)
-
-        showCopyFeedback = true
-        copyFeedbackTask?.cancel()
-        copyFeedbackTask = Task {
-            try? await Task.sleep(nanoseconds: 1_500_000_000)
-            if !Task.isCancelled {
-                showCopyFeedback = false
-            }
-        }
     }
 
     private func generateFullReportMarkdown() -> String {
@@ -490,8 +469,6 @@ struct ChildContextData: Identifiable {
 struct InboxCard: View {
     let items: [Item]
     @State private var isHovered = false
-    @State private var showCopied = false
-    @State private var copyTask: Task<Void, Never>?
     @State private var showAllTasks = false
     private let maxVisibleTasks = 8
     
@@ -518,25 +495,11 @@ struct InboxCard: View {
                 Spacer()
 
                 // Copy button (shows on hover)
-                if isHovered || showCopied {
-                    Button {
-                        copyInboxReport()
-                        showCopied = true
-                        copyTask?.cancel()
-                        copyTask = Task {
-                            try? await Task.sleep(nanoseconds: 1_500_000_000)
-                            if !Task.isCancelled {
-                                showCopied = false
-                            }
-                        }
-                    } label: {
-                        Image(systemName: showCopied ? "checkmark" : "doc.on.doc")
-                            .font(.caption)
-                            .foregroundStyle(showCopied ? .green : .secondary)
-                    }
-                    .buttonStyle(.plain)
-                    .transition(.opacity)
-                }
+                CopyFeedbackButton(
+                    isHovered: isHovered,
+                    helpText: "Copy Inbox Report",
+                    action: copyInboxReport
+                )
 
                 // Progress indicator
                 HStack(spacing: 3) {
@@ -586,10 +549,6 @@ struct InboxCard: View {
                 isHovered = hovering
             }
         }
-        .onDisappear {
-            copyTask?.cancel()
-            copyTask = nil
-        }
     }
     
     private func copyInboxReport() {
@@ -615,8 +574,6 @@ struct RootContextCard: View {
     let data: RootContextData
     let onCopy: (RootContextData) -> Void
     @State private var isHovered = false
-    @State private var showCopied = false
-    @State private var copyTask: Task<Void, Never>?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -633,24 +590,11 @@ struct RootContextCard: View {
                 Spacer()
 
                 // Copy button (shows on hover)
-                if isHovered || showCopied {
-                    Button {
-                        onCopy(data)
-                        showCopied = true
-                        copyTask?.cancel()
-                        copyTask = Task {
-                            try? await Task.sleep(nanoseconds: 1_500_000_000)
-                            if !Task.isCancelled {
-                                showCopied = false
-                            }
-                        }
-                    } label: {
-                        Image(systemName: showCopied ? "checkmark" : "doc.on.doc")
-                            .font(.caption)
-                            .foregroundStyle(showCopied ? .green : .secondary)
-                    }
-                    .buttonStyle(.plain)
-                    .transition(.opacity)
+                CopyFeedbackButton(
+                    isHovered: isHovered,
+                    helpText: "Copy Context Report"
+                ) {
+                    onCopy(data)
                 }
 
                 // Progress indicator - enhanced style
@@ -699,9 +643,69 @@ struct RootContextCard: View {
                 isHovered = hovering
             }
         }
-        .onDisappear {
-            copyTask?.cancel()
-            copyTask = nil
+    }
+}
+
+struct CopyFeedbackButton: View {
+    let isHovered: Bool
+    let helpText: String
+    let iconFont: Font
+    let idleColor: Color
+    let useCircleBackground: Bool
+    let action: () -> Void
+
+    @State private var showCopied = false
+    @State private var feedbackTask: Task<Void, Never>?
+
+    init(
+        isHovered: Bool,
+        helpText: String,
+        iconFont: Font = .caption,
+        idleColor: Color = .secondary,
+        useCircleBackground: Bool = false,
+        action: @escaping () -> Void
+    ) {
+        self.isHovered = isHovered
+        self.helpText = helpText
+        self.iconFont = iconFont
+        self.idleColor = idleColor
+        self.useCircleBackground = useCircleBackground
+        self.action = action
+    }
+
+    var body: some View {
+        if isHovered || showCopied {
+            Button {
+                action()
+                showCopied = true
+                feedbackTask?.cancel()
+                feedbackTask = Task {
+                    try? await Task.sleep(nanoseconds: 1_500_000_000)
+                    if !Task.isCancelled {
+                        showCopied = false
+                    }
+                }
+            } label: {
+                if useCircleBackground {
+                    Image(systemName: showCopied ? "checkmark" : "doc.on.doc")
+                        .font(iconFont)
+                        .foregroundStyle(showCopied ? .green : idleColor)
+                        .frame(width: 32, height: 32)
+                        .background(Color.primary.opacity(0.05))
+                        .clipShape(Circle())
+                } else {
+                    Image(systemName: showCopied ? "checkmark" : "doc.on.doc")
+                        .font(iconFont)
+                        .foregroundStyle(showCopied ? .green : idleColor)
+                }
+            }
+            .buttonStyle(.plain)
+            .transition(.opacity)
+            .help(helpText)
+            .onDisappear {
+                feedbackTask?.cancel()
+                feedbackTask = nil
+            }
         }
     }
 }
