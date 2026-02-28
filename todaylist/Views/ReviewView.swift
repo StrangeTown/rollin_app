@@ -500,20 +500,7 @@ struct InboxCard: View {
                 )
 
                 // Progress indicator
-                HStack(spacing: 3) {
-                    Text("\(completedCount)")
-                        .fontWeight(.semibold)
-                        .foregroundStyle(completedCount == items.count ? .green : .primary)
-                    Text("/")
-                        .foregroundStyle(.tertiary)
-                    Text("\(items.count)")
-                        .foregroundStyle(.secondary)
-                }
-                .font(.caption)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 3)
-                .background(Theme.Colors.breadcrumbBackground)
-                .clipShape(Capsule())
+                CompletionProgressPill(completed: completedCount, total: items.count)
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
@@ -596,20 +583,7 @@ struct RootContextCard: View {
                 }
 
                 // Progress indicator - enhanced style
-                HStack(spacing: 3) {
-                    Text("\(data.completedTaskCount)")
-                        .fontWeight(.semibold)
-                        .foregroundStyle(data.completedTaskCount == data.totalTaskCount ? .green : .primary)
-                    Text("/")
-                        .foregroundStyle(.tertiary)
-                    Text("\(data.totalTaskCount)")
-                        .foregroundStyle(.secondary)
-                }
-                .font(.caption)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 3)
-                .background(Theme.Colors.breadcrumbBackground)
-                .clipShape(Capsule())
+                CompletionProgressPill(completed: data.completedTaskCount, total: data.totalTaskCount)
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
@@ -641,6 +615,48 @@ struct RootContextCard: View {
                 isHovered = hovering
             }
         }
+    }
+}
+
+struct CompletionProgressPill: View {
+    let completed: Int
+    let total: Int
+    let font: Font
+    let incompleteCompletedColor: Color
+    let totalColor: Color
+    let useCapsuleBackground: Bool
+
+    init(
+        completed: Int,
+        total: Int,
+        font: Font = .caption,
+        incompleteCompletedColor: Color = .primary,
+        totalColor: Color = .secondary,
+        useCapsuleBackground: Bool = true
+    ) {
+        self.completed = completed
+        self.total = total
+        self.font = font
+        self.incompleteCompletedColor = incompleteCompletedColor
+        self.totalColor = totalColor
+        self.useCapsuleBackground = useCapsuleBackground
+    }
+
+    var body: some View {
+        HStack(spacing: 3) {
+            Text("\(completed)")
+                .fontWeight(.semibold)
+                .foregroundStyle(completed == total ? .green : incompleteCompletedColor)
+            Text("/")
+                .foregroundStyle(.tertiary)
+            Text("\(total)")
+                .foregroundStyle(totalColor)
+        }
+        .font(font)
+        .padding(.horizontal, useCapsuleBackground ? 8 : 0)
+        .padding(.vertical, useCapsuleBackground ? 3 : 0)
+        .background(useCapsuleBackground ? Theme.Colors.breadcrumbBackground : Color.clear)
+        .clipShape(Capsule())
     }
 }
 
@@ -742,15 +758,14 @@ struct ChildContextBlock: View {
                     Spacer()
 
                     if data.totalTaskCount > 0 {
-                        HStack(spacing: 2) {
-                            Text("\(data.completedTaskCount)")
-                                .foregroundStyle(data.completedTaskCount == data.totalTaskCount ? .green : .secondary)
-                            Text("/")
-                                .foregroundStyle(.tertiary)
-                            Text("\(data.totalTaskCount)")
-                                .foregroundStyle(.tertiary)
-                        }
-                        .font(.caption2)
+                        CompletionProgressPill(
+                            completed: data.completedTaskCount,
+                            total: data.totalTaskCount,
+                            font: .caption2,
+                            incompleteCompletedColor: .secondary,
+                            totalColor: .secondary.opacity(0.7),
+                            useCapsuleBackground: false
+                        )
                     }
                 }
             }
