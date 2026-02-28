@@ -800,6 +800,7 @@ struct ShowMoreButton: View {
     let remainingCount: Int
     let action: () -> Void
     @State private var isHovered = false
+    @State private var isCursorPushed = false
 
     var body: some View {
         Button(action: action) {
@@ -820,10 +821,18 @@ struct ShowMoreButton: View {
         .buttonStyle(.plain)
         .onHover { hovering in
             isHovered = hovering
-            if hovering {
+            if hovering && !isCursorPushed {
                 NSCursor.pointingHand.push()
-            } else {
+                isCursorPushed = true
+            } else if !hovering && isCursorPushed {
                 NSCursor.pop()
+                isCursorPushed = false
+            }
+        }
+        .onDisappear {
+            if isCursorPushed {
+                NSCursor.pop()
+                isCursorPushed = false
             }
         }
         .padding(.vertical, 2)
