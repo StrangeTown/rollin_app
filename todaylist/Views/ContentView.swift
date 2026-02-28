@@ -114,6 +114,7 @@ struct ContentView: View {
                                 }
                             }
                         ) {
+                            let isTodaySection = Calendar.current.isDate(date, inSameDayAs: currentDate)
                             ForEach(grouped[date]!) { item in
                                 TaskRowView(
                                     item: item,
@@ -124,7 +125,8 @@ struct ContentView: View {
                                         taskToEdit = item
                                     },
                                     isScheduled: true,
-                                    isToday: Calendar.current.isDate(date, inSameDayAs: currentDate)
+                                    isToday: isTodaySection,
+                                    onStartTask: isTodaySection ? { startTask(item) } : nil
                                 )
                                 .listRowSeparator(.hidden)
                                 .listRowInsets(EdgeInsets(top: Theme.Spacing.listItemVertical, leading: 0, bottom: Theme.Spacing.listItemVertical, trailing: 0))
@@ -259,21 +261,65 @@ struct ContentView: View {
     private func toggleCompletion(for item: Item) {
         withAnimation {
             item.isCompleted.toggle()
-            item.completedAt = item.isCompleted ? Date() : nil
+            if item.isCompleted {
+                // Completing: accumulate any in-progress time, then stop
+                if item.isInProgress, let startedAt = item.startedAt {
+                    item.accumulatedDuration += Date().timeIntervalSince(startedAt)
+                    item.startedAt = nil
+                }
+                item.completedAt = Date()
+            } else {
+                // Uncompleting: clear timer state entirely
+                item.completedAt = nil
+                item.startedAt = nil
+                item.accumulatedDuration = 0
+            }
         }
     }
-    
+
     private func moveToToday(_ item: Item) {
         withAnimation {
             // Assign current date to move from Inbox to Today
             item.assignedDate = Date()
         }
     }
-    
+
     private func removeFromToday(_ item: Item) {
         withAnimation {
             // Remove assigned date to move back to Inbox
             item.assignedDate = nil
+            // Clear timer state
+            item.startedAt = nil
+            item.accumulatedDuration = 0
+        }
+    }
+
+    // MARK: - Timer Functions
+
+    private func startTask(_ item: Item) {
+        withAnimation {
+            if item.isInProgress {
+                // Pause: accumulate current segment
+                stopTask(item)
+            } else {
+                // Start/Resume: pause any other active task first
+                pauseCurrentlyActiveTask()
+                item.startedAt = Date()
+            }
+        }
+    }
+
+    private func pauseCurrentlyActiveTask() {
+        let activeItems = scheduledItems.filter { $0.startedAt != nil && !$0.isCompleted }
+        for activeItem in activeItems {
+            stopTask(activeItem)
+        }
+    }
+
+    private func stopTask(_ item: Item) {
+        if let startedAt = item.startedAt {
+            item.accumulatedDuration += Date().timeIntervalSince(startedAt)
+            item.startedAt = nil
         }
     }
 
@@ -312,6 +358,9 @@ struct ContentView: View {
         withAnimation {
             for item in overdueItems {
                 item.assignedDate = nil
+                // Clear timer state for overdue tasks
+                item.startedAt = nil
+                item.accumulatedDuration = 0
             }
         }
     }
@@ -621,16 +670,26 @@ struct ContextDetailView: View {
     private func toggleCompletion(for item: Item) {
         withAnimation {
             item.isCompleted.toggle()
-            item.completedAt = item.isCompleted ? Date() : nil
+            if item.isCompleted {
+                if item.isInProgress, let startedAt = item.startedAt {
+                    item.accumulatedDuration += Date().timeIntervalSince(startedAt)
+                    item.startedAt = nil
+                }
+                item.completedAt = Date()
+            } else {
+                item.completedAt = nil
+                item.startedAt = nil
+                item.accumulatedDuration = 0
+            }
         }
     }
-    
+
     private func moveToToday(_ item: Item) {
         withAnimation {
             item.assignedDate = Date()
         }
     }
-    
+
     private func deleteItem(_ item: Item) {
         withAnimation {
             modelContext.delete(item)

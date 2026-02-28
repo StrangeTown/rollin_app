@@ -44,7 +44,10 @@ struct TodayTimelineView: View {
         todayCompletedItems.map { item in
             let time = item.completedAt.map { Self.timeFormatter.string(from: $0) } ?? ""
             let tag = item.context.map { "[\($0.name)] " } ?? ""
-            return "- \(time) \(tag)\(item.title)"
+            let duration = item.hasBeenTracked
+                ? " (\(ElapsedTimeView.formatDuration(item.accumulatedDuration)))"
+                : ""
+            return "- \(time)\(duration) \(tag)\(item.title)"
         }.joined(separator: "\n")
     }
     
@@ -143,11 +146,16 @@ struct TimelineItemRow: View {
             
             // Content
             VStack(alignment: .leading, spacing: 6) {
-                // Time - smaller, muted gray
+                // Time - smaller, muted gray, with optional duration
                 if let completedAt = item.completedAt {
-                    Text(timeFormatter.string(from: completedAt))
-                        .font(.caption2)
-                        .foregroundColor(Theme.Colors.timelineTimestamp)
+                    HStack(spacing: 4) {
+                        Text(timeFormatter.string(from: completedAt))
+                        if item.hasBeenTracked {
+                            Text("· \(ElapsedTimeView.formatDuration(item.accumulatedDuration))")
+                        }
+                    }
+                    .font(.caption2)
+                    .foregroundColor(Theme.Colors.timelineTimestamp)
                 }
                 
                 // Task title - soft charcoal
