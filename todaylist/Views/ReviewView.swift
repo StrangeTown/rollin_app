@@ -114,6 +114,10 @@ struct ReviewView: View {
             }
         }
         .frame(minWidth: 700, minHeight: 500)
+        .onDisappear {
+            copyFeedbackTask?.cancel()
+            copyFeedbackTask = nil
+        }
     }
     
     // MARK: - Header
@@ -440,24 +444,20 @@ struct RootContextData: Identifiable {
     let context: ContextNode
     let directTasks: [Item]
     let children: [ChildContextData]
+    let totalTaskCount: Int
+    let completedTaskCount: Int
     
     init(context: ContextNode, directTasks: [Item], children: [ChildContextData]) {
         self.id = context.id
         self.context = context
         self.directTasks = directTasks
         self.children = children
+        self.totalTaskCount = directTasks.count + children.reduce(0) { $0 + $1.totalTaskCount }
+        self.completedTaskCount = directTasks.filter { $0.isCompleted }.count + children.reduce(0) { $0 + $1.completedTaskCount }
     }
     
     var hasAnyTasks: Bool {
-        !directTasks.isEmpty || children.contains { $0.hasAnyTasks }
-    }
-    
-    var totalTaskCount: Int {
-        directTasks.count + children.reduce(0) { $0 + $1.totalTaskCount }
-    }
-    
-    var completedTaskCount: Int {
-        directTasks.filter { $0.isCompleted }.count + children.reduce(0) { $0 + $1.completedTaskCount }
+        totalTaskCount > 0
     }
 }
 
@@ -467,6 +467,8 @@ struct ChildContextData: Identifiable {
     let tasks: [Item]
     let children: [ChildContextData]
     let depth: Int
+    let totalTaskCount: Int
+    let completedTaskCount: Int
     
     init(context: ContextNode, tasks: [Item], children: [ChildContextData], depth: Int) {
         self.id = context.id
@@ -474,18 +476,12 @@ struct ChildContextData: Identifiable {
         self.tasks = tasks
         self.children = children
         self.depth = depth
+        self.totalTaskCount = tasks.count + children.reduce(0) { $0 + $1.totalTaskCount }
+        self.completedTaskCount = tasks.filter { $0.isCompleted }.count + children.reduce(0) { $0 + $1.completedTaskCount }
     }
     
     var hasAnyTasks: Bool {
-        !tasks.isEmpty || children.contains { $0.hasAnyTasks }
-    }
-    
-    var totalTaskCount: Int {
-        tasks.count + children.reduce(0) { $0 + $1.totalTaskCount }
-    }
-    
-    var completedTaskCount: Int {
-        tasks.filter { $0.isCompleted }.count + children.reduce(0) { $0 + $1.completedTaskCount }
+        totalTaskCount > 0
     }
 }
 
@@ -589,6 +585,10 @@ struct InboxCard: View {
             withAnimation(.easeInOut(duration: 0.15)) {
                 isHovered = hovering
             }
+        }
+        .onDisappear {
+            copyTask?.cancel()
+            copyTask = nil
         }
     }
     
@@ -698,6 +698,10 @@ struct RootContextCard: View {
             withAnimation(.easeInOut(duration: 0.15)) {
                 isHovered = hovering
             }
+        }
+        .onDisappear {
+            copyTask?.cancel()
+            copyTask = nil
         }
     }
 }
