@@ -260,16 +260,15 @@ struct ContentView: View {
 
     private func toggleCompletion(for item: Item) {
         withAnimation {
+            // Accumulate in-progress time before toggling (isInProgress requires !isCompleted)
+            if !item.isCompleted, item.isInProgress, let startedAt = item.startedAt {
+                item.accumulatedDuration += Date().timeIntervalSince(startedAt)
+                item.startedAt = nil
+            }
             item.isCompleted.toggle()
             if item.isCompleted {
-                // Completing: accumulate any in-progress time, then stop
-                if item.isInProgress, let startedAt = item.startedAt {
-                    item.accumulatedDuration += Date().timeIntervalSince(startedAt)
-                    item.startedAt = nil
-                }
                 item.completedAt = Date()
             } else {
-                // Uncompleting: clear timer state entirely
                 item.completedAt = nil
                 item.startedAt = nil
                 item.accumulatedDuration = 0
@@ -669,12 +668,13 @@ struct ContextDetailView: View {
     
     private func toggleCompletion(for item: Item) {
         withAnimation {
+            // Accumulate in-progress time before toggling (isInProgress requires !isCompleted)
+            if !item.isCompleted, item.isInProgress, let startedAt = item.startedAt {
+                item.accumulatedDuration += Date().timeIntervalSince(startedAt)
+                item.startedAt = nil
+            }
             item.isCompleted.toggle()
             if item.isCompleted {
-                if item.isInProgress, let startedAt = item.startedAt {
-                    item.accumulatedDuration += Date().timeIntervalSince(startedAt)
-                    item.startedAt = nil
-                }
                 item.completedAt = Date()
             } else {
                 item.completedAt = nil

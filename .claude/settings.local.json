@@ -3,7 +3,15 @@
     "allow": [
       "mcp__ide__getDiagnostics",
       "Bash(git add:*)",
-      "Bash(git commit -m \"$\\(cat <<''EOF''\nfeat: 添加 Context 右键菜单「Move to Front」功能，支持将 context 置顶\n\n新增 SchemaV3 为 ContextNode 添加 sortOrder 字段，侧边栏按 sortOrder 排序，\n右键菜单新增 Move to Front 选项将目标节点移至同级最前。\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\nEOF\n\\)\")"
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nfeat: 添加 Context 右键菜单「Move to Front」功能，支持将 context 置顶\n\n新增 SchemaV3 为 ContextNode 添加 sortOrder 字段，侧边栏按 sortOrder 排序，\n右键菜单新增 Move to Front 选项将目标节点移至同级最前。\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git -C /Users/yinxing/Documents/projects/z/todaylist status)",
+      "Bash(git -C /Users/yinxing/Documents/projects/z/todaylist diff)",
+      "Bash(git -C /Users/yinxing/Documents/projects/z/todaylist log --oneline -5)",
+      "Bash(git -C /Users/yinxing/Documents/projects/z/todaylist add todaylist/Services/RecentContextsManager.swift todaylist/Views/AddTaskView.swift)",
+      "Bash(git -C /Users/yinxing/Documents/projects/z/todaylist commit -m \"$\\(cat <<''EOF''\nfeat: 添加任务时显示最近使用的 Context 快捷选择\n\n新建 RecentContextsManager 通过 UserDefaults 记录最近使用的 context UUID，\n在 AddTaskView metadata 行以淡色 pill 形式展示最近 context（最多 3 个），\n点击即可快速选中，省去打开 picker 弹窗的步骤。\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(find:*)",
+      "Bash(xcodebuild:*)",
+      "Bash(git commit:*)"
     ]
   }
 }
