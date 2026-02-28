@@ -255,8 +255,7 @@ struct ReviewReportBuilder {
             lines.append("## Inbox")
             lines.append("")
             for item in data.inboxItems {
-                let status = item.isCompleted ? "[x]" : "[ ]"
-                lines.append("- \(status) \(item.title)")
+                lines.append(taskLine(for: item))
             }
             lines.append("")
         }
@@ -275,12 +274,11 @@ struct ReviewReportBuilder {
         lines.append("")
 
         for item in data.directTasks {
-            let status = item.isCompleted ? "[x]" : "[ ]"
-            lines.append("- \(status) \(item.title)")
+            lines.append(taskLine(for: item))
         }
 
         for child in data.children {
-            lines.append(contentsOf: childMarkdown(for: child, indent: ""))
+            lines.append(contentsOf: childMarkdown(for: child, depth: 0))
         }
 
         return lines.joined(separator: "\n")
@@ -292,33 +290,41 @@ struct ReviewReportBuilder {
         lines.append("")
 
         for item in data.directTasks {
-            let status = item.isCompleted ? "[x]" : "[ ]"
-            lines.append("- \(status) \(item.title)")
+            lines.append(taskLine(for: item))
         }
 
         for child in data.children {
-            lines.append(contentsOf: childMarkdown(for: child, indent: ""))
+            lines.append(contentsOf: childMarkdown(for: child, depth: 0))
         }
 
         lines.append("")
         return lines
     }
 
-    private static func childMarkdown(for data: ChildContextData, indent: String) -> [String] {
+    private static func childMarkdown(for data: ChildContextData, depth: Int) -> [String] {
+        let indent = indentation(depth)
         var lines: [String] = []
         lines.append("")
         lines.append("\(indent)### \(data.context.name)")
 
         for item in data.tasks {
-            let status = item.isCompleted ? "[x]" : "[ ]"
-            lines.append("\(indent)- \(status) \(item.title)")
+            lines.append(taskLine(for: item, indent: indent))
         }
 
         for child in data.children {
-            lines.append(contentsOf: childMarkdown(for: child, indent: indent + "  "))
+            lines.append(contentsOf: childMarkdown(for: child, depth: depth + 1))
         }
 
         return lines
+    }
+
+    private static func taskLine(for item: Item, indent: String = "") -> String {
+        let status = item.isCompleted ? "[x]" : "[ ]"
+        return "\(indent)- \(status) \(item.title)"
+    }
+
+    private static func indentation(_ depth: Int) -> String {
+        String(repeating: "  ", count: max(0, depth))
     }
 }
 
