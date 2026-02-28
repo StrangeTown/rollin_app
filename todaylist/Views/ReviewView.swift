@@ -228,21 +228,30 @@ struct ReviewView: View {
     // MARK: - Copy Functions
 
     private func copyFullReport() {
-        let markdown = generateFullReportMarkdown()
+        let markdown = ReviewReportBuilder.fullReportMarkdown(
+            data: computedData,
+            dateRangeText: dateRangeText
+        )
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(markdown, forType: .string)
     }
 
-    private func generateFullReportMarkdown() -> String {
-        let data = computedData
+    private func copyContextReport(_ data: RootContextData) {
+        let markdown = ReviewReportBuilder.contextOnlyMarkdown(for: data)
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(markdown, forType: .string)
+    }
+}
+
+struct ReviewReportBuilder {
+    static func fullReportMarkdown(data: ComputedReviewData, dateRangeText: String) -> String {
         var lines: [String] = []
         lines.append("# Review")
-        lines.append("\(dateRangeText)")
+        lines.append(dateRangeText)
         lines.append("")
         lines.append("**Total:** \(data.totalCount) | **Done:** \(data.completedCount)")
         lines.append("")
 
-        // Inbox items (no context)
         if !data.inboxItems.isEmpty {
             lines.append("## Inbox")
             lines.append("")
@@ -254,50 +263,13 @@ struct ReviewView: View {
         }
 
         for contextData in data.rootContextData {
-            lines.append(contentsOf: generateContextMarkdown(for: contextData))
+            lines.append(contentsOf: contextMarkdown(for: contextData))
         }
 
         return lines.joined(separator: "\n")
     }
 
-    private func generateContextMarkdown(for data: RootContextData) -> [String] {
-        var lines: [String] = []
-        lines.append("## \(data.context.name)")
-        lines.append("")
-
-        // Direct tasks
-        for item in data.directTasks {
-            let status = item.isCompleted ? "[x]" : "[ ]"
-            lines.append("- \(status) \(item.title)")
-        }
-
-        // Children
-        for child in data.children {
-            lines.append(contentsOf: generateChildMarkdown(for: child, indent: ""))
-        }
-
-        lines.append("")
-        return lines
-    }
-
-    private func generateChildMarkdown(for data: ChildContextData, indent: String) -> [String] {
-        var lines: [String] = []
-        lines.append("")
-        lines.append("\(indent)### \(data.context.name)")
-
-        for item in data.tasks {
-            let status = item.isCompleted ? "[x]" : "[ ]"
-            lines.append("\(indent)- \(status) \(item.title)")
-        }
-
-        for child in data.children {
-            lines.append(contentsOf: generateChildMarkdown(for: child, indent: indent + "  "))
-        }
-
-        return lines
-    }
-
-    func generateContextOnlyMarkdown(for data: RootContextData) -> String {
+    static func contextOnlyMarkdown(for data: RootContextData) -> String {
         var lines: [String] = []
         lines.append("## \(data.context.name)")
         lines.append("(\(data.completedTaskCount)/\(data.totalTaskCount) completed)")
@@ -309,16 +281,45 @@ struct ReviewView: View {
         }
 
         for child in data.children {
-            lines.append(contentsOf: generateChildMarkdown(for: child, indent: ""))
+            lines.append(contentsOf: childMarkdown(for: child, indent: ""))
         }
 
         return lines.joined(separator: "\n")
     }
 
-    private func copyContextReport(_ data: RootContextData) {
-        let markdown = generateContextOnlyMarkdown(for: data)
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(markdown, forType: .string)
+    private static func contextMarkdown(for data: RootContextData) -> [String] {
+        var lines: [String] = []
+        lines.append("## \(data.context.name)")
+        lines.append("")
+
+        for item in data.directTasks {
+            let status = item.isCompleted ? "[x]" : "[ ]"
+            lines.append("- \(status) \(item.title)")
+        }
+
+        for child in data.children {
+            lines.append(contentsOf: childMarkdown(for: child, indent: ""))
+        }
+
+        lines.append("")
+        return lines
+    }
+
+    private static func childMarkdown(for data: ChildContextData, indent: String) -> [String] {
+        var lines: [String] = []
+        lines.append("")
+        lines.append("\(indent)### \(data.context.name)")
+
+        for item in data.tasks {
+            let status = item.isCompleted ? "[x]" : "[ ]"
+            lines.append("\(indent)- \(status) \(item.title)")
+        }
+
+        for child in data.children {
+            lines.append(contentsOf: childMarkdown(for: child, indent: indent + "  "))
+        }
+
+        return lines
     }
 }
 
