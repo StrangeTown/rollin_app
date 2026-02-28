@@ -29,7 +29,6 @@ enum DateRangePreset: String, CaseIterable {
 // MARK: - Main View
 
 struct ReviewView: View {
-    @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
 
     // Fetch root contexts (parent == nil)
@@ -327,7 +326,6 @@ struct ReviewReportBuilder {
 
 /// Aggregates all computed data in a single pass to avoid redundant calculations
 struct ComputedReviewData {
-    let weekItems: [Item]
     let inboxItems: [Item]
     let rootContextData: [RootContextData]
     let completedCount: Int
@@ -361,7 +359,6 @@ struct ComputedReviewData {
             }
         }
         
-        self.weekItems = filtered
         self.completedCount = completed
         self.totalCount = filtered.count
         self.inboxItems = inbox.sorted { ($0.completedAt ?? $0.timestamp) > ($1.completedAt ?? $1.timestamp) }
@@ -865,27 +862,6 @@ struct TaskRow: View {
                 .truncationMode(.tail)
 
             Spacer()
-        }
-    }
-}
-
-// MARK: - Stat Badge
-
-struct StatBadge: View {
-    let label: String
-    let value: String
-    let color: Color
-
-    var body: some View {
-        VStack(spacing: 2) {
-            Text(value)
-                .font(.title3)
-                .fontWeight(.bold)
-                .foregroundStyle(color)
-
-            Text(label)
-                .font(.caption2)
-                .foregroundStyle(.secondary)
         }
     }
 }
