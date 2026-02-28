@@ -71,9 +71,15 @@ struct TaskRowView: View {
                         .breadcrumbTagStyle()
                 }
 
-                // Show elapsed time for in-progress tasks
-                if isToday && item.isInProgress, let startedAt = item.startedAt {
-                    ElapsedTimeView(since: startedAt, accumulated: item.accumulatedDuration)
+                // Show elapsed time for tracked tasks (in-progress: live; paused: static)
+                if isToday && item.hasBeenTracked && !item.isCompleted {
+                    if item.isInProgress, let startedAt = item.startedAt {
+                        ElapsedTimeView(since: startedAt, accumulated: item.accumulatedDuration)
+                    } else {
+                        Text("⏱ \(ElapsedTimeView.formatDuration(item.accumulatedDuration))")
+                            .font(Theme.Fonts.completionTime)
+                            .foregroundStyle(Theme.Colors.completionTime)
+                    }
                 }
 
                 // Show completion time below title for today's completed tasks
