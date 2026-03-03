@@ -37,6 +37,7 @@ struct ContentView: View {
     @State private var taskAssignedDate: Date? = nil
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
     @State private var showTimelineSheet = false
+    @State private var showDailyLogSheet = false
     @State private var showWeeklyMatrix = false
     
     @State private var taskToEdit: Item?
@@ -95,6 +96,14 @@ struct ContentView: View {
                                 sectionHeaderView(for: date)
                                 if Calendar.current.isDate(date, inSameDayAs: currentDate) {
                                     Spacer()
+                                    Button(action: {
+                                        showDailyLogSheet = true
+                                    }) {
+                                        Image(systemName: "note.text")
+                                    }
+                                    .buttonStyle(.borderless)
+                                    .help("记录流水账")
+
                                     Button(action: {
                                         showTimelineSheet = true
                                     }) {
@@ -188,6 +197,7 @@ struct ContentView: View {
         .onReceive(NotificationCenter.default.publisher(for: .NSCalendarDayChanged)) { _ in
             currentDate = Date()
             moveOverdueTasksToInbox()
+            DailyLogManager.shared.loadAndValidate()
         }
         .sheet(isPresented: $showAddTaskSheet) {
             AddTaskView(assignedDate: taskAssignedDate)
@@ -195,6 +205,13 @@ struct ContentView: View {
         .id(taskAssignedDate)
         .sheet(isPresented: $showTimelineSheet) {
             TodayTimelineView(currentDate: currentDate)
+        }
+        .sheet(isPresented: $showDailyLogSheet) {
+            let todayTasks = scheduledItems.filter {
+                guard let d = $0.assignedDate else { return false }
+                return Calendar.current.isDate(d, inSameDayAs: currentDate) && !$0.isCompleted
+            }
+            DailyLogView(todayItems: todayTasks)
         }
         .sheet(isPresented: $showWeeklyMatrix) {
             ReviewView()
