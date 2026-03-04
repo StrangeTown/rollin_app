@@ -640,7 +640,7 @@ struct ContextTreeRow: View {
         if selectedContext == node {
             return .white
         }
-        return isRootLevel ? .primary : .secondary
+        return isRootLevel ? Theme.Colors.primaryText : .secondary
     }
 }
 

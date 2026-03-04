@@ -78,6 +78,12 @@ enum Theme {
             dark: Color.secondary.opacity(0.5)
         )
         
+        /// Primary text - slightly softened from pure black
+        static let primaryText = Color(
+            light: Color(red: 0.15, green: 0.15, blue: 0.17),
+            dark: Color(red: 0.92, green: 0.92, blue: 0.92)
+        )
+        
         /// Timeline task title - soft charcoal instead of pure black
         static let timelineText = Color(
             light: Color(red: 0.11, green: 0.11, blue: 0.12),  // #1C1C1E

@@ -59,7 +59,7 @@ struct TaskRowView: View {
 
             VStack(alignment: .leading, spacing: Theme.Spacing.taskRowInternal) {
                 Text(item.title)
-                    .foregroundStyle(item.isCompleted ? Theme.Colors.completedText : Color.primary)
+                    .foregroundStyle(item.isCompleted ? Theme.Colors.completedText : Theme.Colors.primaryText)
                     .strikethrough(item.isCompleted)
                     .lineLimit(nil)
                     .fixedSize(horizontal: false, vertical: true)
