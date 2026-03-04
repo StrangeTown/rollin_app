@@ -106,9 +106,13 @@ struct DailyLogView: View {
             } else {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 0) {
-                        ForEach(logManager.entries.reversed()) { entry in
+                        let reversed = logManager.entries.reversed() as [DailyLogEntry]
+                        ForEach(Array(reversed.enumerated()), id: \.element.id) { index, entry in
+                            let nextEntry: DailyLogEntry? = index + 1 < reversed.count ? reversed[index + 1] : nil
+                            let connectorHeight = Self.connectorHeight(from: entry, to: nextEntry)
                             DailyLogEntryRow(
                                 entry: entry,
+                                connectorHeight: connectorHeight,
                                 timeFormatter: Self.timeFormatter,
                                 onDelete: { logManager.deleteEntry(id: entry.id) }
                             )
@@ -138,12 +142,28 @@ struct DailyLogView: View {
         inputText = ""
         selectedTask = nil
     }
+
+    /// Maps time gap between two entries to a connector line height.
+    /// Uses log-scale buckets: small gaps → short line, large gaps → tall line.
+    private static func connectorHeight(from entry: DailyLogEntry, to next: DailyLogEntry?) -> CGFloat {
+        guard let next = next else { return 8 } // last item
+        let minutes = entry.timestamp.timeIntervalSince(next.timestamp) / 60
+        switch minutes {
+        case ..<2:   return 8
+        case ..<5:   return 14
+        case ..<15:  return 22
+        case ..<30:  return 32
+        case ..<45:  return 40
+        default:     return 48
+        }
+    }
 }
 
 // MARK: - Entry Row
 
 struct DailyLogEntryRow: View {
     let entry: DailyLogEntry
+    let connectorHeight: CGFloat
     let timeFormatter: DateFormatter
     let onDelete: () -> Void
 
@@ -159,7 +179,7 @@ struct DailyLogEntryRow: View {
                     .padding(.top, 4)
                 Rectangle()
                     .fill(Theme.Colors.todayAccent.opacity(0.15))
-                    .frame(width: 1.5)
+                    .frame(width: 1.5, height: connectorHeight)
             }
 
             // Content: time + text in one line, optional tag below
@@ -183,7 +203,7 @@ struct DailyLogEntryRow: View {
                         .clipShape(Capsule())
                 }
             }
-            .padding(.bottom, 12)
+            .padding(.bottom, connectorHeight)
 
             Spacer()
 
