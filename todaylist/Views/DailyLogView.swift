@@ -40,6 +40,35 @@ struct DailyLogView: View {
 
             Divider()
 
+            // MARK: Log Timeline
+            if logManager.entries.isEmpty {
+                ContentUnavailableView(
+                    "暂无记录",
+                    systemImage: "note.text",
+                    description: Text("记录一下现在在干什么吧")
+                )
+                .frame(maxHeight: .infinity)
+            } else {
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 0) {
+                        let entries = logManager.entries // oldest first (insertion order)
+                        ForEach(Array(entries.enumerated()), id: \.element.id) { index, entry in
+                            let nextEntry: DailyLogEntry? = index + 1 < entries.count ? entries[index + 1] : nil
+                            let connectorHeight = Self.connectorHeight(from: entry, to: nextEntry)
+                            DailyLogEntryRow(
+                                entry: entry,
+                                connectorHeight: connectorHeight,
+                                timeFormatter: Self.timeFormatter,
+                                onDelete: { logManager.deleteEntry(id: entry.id) }
+                            )
+                        }
+                    }
+                    .padding(.vertical, 16)
+                }
+            }
+
+            Divider()
+
             // MARK: Input Area
             VStack(alignment: .leading, spacing: 10) {
                 HStack(spacing: 8) {
@@ -92,35 +121,6 @@ struct DailyLogView: View {
             }
             .padding(.horizontal, 24)
             .padding(.vertical, 16)
-
-            Divider()
-
-            // MARK: Log Timeline
-            if logManager.entries.isEmpty {
-                ContentUnavailableView(
-                    "暂无记录",
-                    systemImage: "note.text",
-                    description: Text("记录一下现在在干什么吧")
-                )
-                .frame(maxHeight: .infinity)
-            } else {
-                ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 0) {
-                        let reversed = logManager.entries.reversed() as [DailyLogEntry]
-                        ForEach(Array(reversed.enumerated()), id: \.element.id) { index, entry in
-                            let nextEntry: DailyLogEntry? = index + 1 < reversed.count ? reversed[index + 1] : nil
-                            let connectorHeight = Self.connectorHeight(from: entry, to: nextEntry)
-                            DailyLogEntryRow(
-                                entry: entry,
-                                connectorHeight: connectorHeight,
-                                timeFormatter: Self.timeFormatter,
-                                onDelete: { logManager.deleteEntry(id: entry.id) }
-                            )
-                        }
-                    }
-                    .padding(.vertical, 16)
-                }
-            }
         }
         .frame(width: 380, height: 620)
         .onAppear {
@@ -146,15 +146,15 @@ struct DailyLogView: View {
     /// Maps time gap between two entries to a connector line height.
     /// Uses log-scale buckets: small gaps → short line, large gaps → tall line.
     private static func connectorHeight(from entry: DailyLogEntry, to next: DailyLogEntry?) -> CGFloat {
-        guard let next = next else { return 8 } // last item
-        let minutes = entry.timestamp.timeIntervalSince(next.timestamp) / 60
+        guard let next = next else { return 6 } // last item
+        let minutes = next.timestamp.timeIntervalSince(entry.timestamp) / 60
         switch minutes {
-        case ..<2:   return 8
-        case ..<5:   return 14
-        case ..<15:  return 22
-        case ..<30:  return 32
-        case ..<45:  return 40
-        default:     return 48
+        case ..<2:   return 6
+        case ..<5:   return 10
+        case ..<15:  return 16
+        case ..<30:  return 22
+        case ..<45:  return 28
+        default:     return 34
         }
     }
 }
