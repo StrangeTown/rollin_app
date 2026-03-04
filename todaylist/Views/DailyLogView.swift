@@ -196,7 +196,7 @@ struct LogTimeColumn: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             // Column header
-            VStack(alignment: .leading, spacing: 2) {
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
                 Text(title)
                     .font(.subheadline.bold())
                     .foregroundStyle(Theme.Colors.primaryText)
