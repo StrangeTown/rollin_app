@@ -118,7 +118,7 @@ struct DailyLogView: View {
                 }
             }
         }
-        .frame(width: 350, height: 480)
+        .frame(width: 380, height: 620)
         .onAppear {
             logManager.loadAndValidate()
             isInputFocused = true
@@ -150,38 +150,40 @@ struct DailyLogEntryRow: View {
     @State private var isHovering = false
 
     var body: some View {
-        HStack(alignment: .top, spacing: 16) {
+        HStack(alignment: .top, spacing: 12) {
             // Timeline indicator
             VStack(spacing: 0) {
                 Circle()
                     .fill(Theme.Colors.todayAccent.opacity(0.7))
-                    .frame(width: 7, height: 7)
+                    .frame(width: 6, height: 6)
+                    .padding(.top, 4)
                 Rectangle()
                     .fill(Theme.Colors.todayAccent.opacity(0.15))
                     .frame(width: 1.5)
             }
 
-            // Content
-            VStack(alignment: .leading, spacing: 5) {
-                Text(timeFormatter.string(from: entry.timestamp))
-                    .font(.caption2)
-                    .foregroundColor(Theme.Colors.timelineTimestamp)
-
-                Text(entry.content)
-                    .font(.body)
-                    .foregroundColor(Theme.Colors.timelineText)
+            // Content: time + text in one line, optional tag below
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Text(timeFormatter.string(from: entry.timestamp))
+                        .font(.caption2)
+                        .foregroundColor(Theme.Colors.timelineTimestamp)
+                    Text(entry.content)
+                        .font(.callout)
+                        .foregroundColor(Theme.Colors.timelineText)
+                }
 
                 if let taskTitle = entry.linkedTaskTitle {
                     Text(taskTitle)
                         .font(.caption2)
                         .foregroundStyle(Theme.Colors.timelineTimestamp)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 3)
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 2)
                         .background(Theme.Colors.timelineTagBackground)
                         .clipShape(Capsule())
                 }
             }
-            .padding(.bottom, 20)
+            .padding(.bottom, 12)
 
             Spacer()
 
