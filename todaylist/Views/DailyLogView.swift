@@ -23,6 +23,26 @@ struct DailyLogView: View {
         return f
     }()
 
+    // MARK: - Time Period Helpers
+
+    private static let calendar = Calendar.current
+
+    private static func hour(of entry: DailyLogEntry) -> Int {
+        calendar.component(.hour, from: entry.timestamp)
+    }
+
+    private var morningEntries: [DailyLogEntry] {
+        logManager.entries.filter { Self.hour(of: $0) < 12 }
+    }
+
+    private var afternoonEntries: [DailyLogEntry] {
+        logManager.entries.filter { let h = Self.hour(of: $0); return h >= 12 && h < 18 }
+    }
+
+    private var eveningEntries: [DailyLogEntry] {
+        logManager.entries.filter { Self.hour(of: $0) >= 18 }
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             // MARK: Header
@@ -36,36 +56,41 @@ struct DailyLogView: View {
                 }
                 .buttonStyle(.plain)
             }
-            .padding(24)
+            .padding(.horizontal, 24)
+            .padding(.vertical, 16)
 
             Divider()
 
-            // MARK: Log Timeline
-            if logManager.entries.isEmpty {
-                ContentUnavailableView(
-                    "暂无记录",
-                    systemImage: "note.text",
-                    description: Text("记录一下现在在干什么吧")
+            // MARK: Three-column Timeline
+            HStack(alignment: .top, spacing: 0) {
+                LogTimeColumn(
+                    title: "上午",
+                    subtitle: "00:00 – 12:00",
+                    entries: morningEntries,
+                    timeFormatter: Self.timeFormatter,
+                    connectorHeightFn: Self.connectorHeight,
+                    onDelete: { id in logManager.deleteEntry(id: id) }
                 )
-                .frame(maxHeight: .infinity)
-            } else {
-                ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 0) {
-                        let entries = logManager.entries // oldest first (insertion order)
-                        ForEach(Array(entries.enumerated()), id: \.element.id) { index, entry in
-                            let nextEntry: DailyLogEntry? = index + 1 < entries.count ? entries[index + 1] : nil
-                            let connectorHeight = Self.connectorHeight(from: entry, to: nextEntry)
-                            DailyLogEntryRow(
-                                entry: entry,
-                                connectorHeight: connectorHeight,
-                                timeFormatter: Self.timeFormatter,
-                                onDelete: { logManager.deleteEntry(id: entry.id) }
-                            )
-                        }
-                    }
-                    .padding(.vertical, 16)
-                }
+                Divider()
+                LogTimeColumn(
+                    title: "下午",
+                    subtitle: "12:00 – 18:00",
+                    entries: afternoonEntries,
+                    timeFormatter: Self.timeFormatter,
+                    connectorHeightFn: Self.connectorHeight,
+                    onDelete: { id in logManager.deleteEntry(id: id) }
+                )
+                Divider()
+                LogTimeColumn(
+                    title: "晚上",
+                    subtitle: "18:00 – 24:00",
+                    entries: eveningEntries,
+                    timeFormatter: Self.timeFormatter,
+                    connectorHeightFn: Self.connectorHeight,
+                    onDelete: { id in logManager.deleteEntry(id: id) }
+                )
             }
+            .frame(maxHeight: .infinity)
 
             Divider()
 
@@ -102,7 +127,6 @@ struct DailyLogView: View {
                                 .foregroundStyle(.secondary)
                         }
                         FlowLayout(spacing: 6) {
-                            // "不关联" chip
                             TaskChip(
                                 title: "不关联",
                                 isSelected: selectedTask == nil,
@@ -122,7 +146,7 @@ struct DailyLogView: View {
             .padding(.horizontal, 24)
             .padding(.vertical, 16)
         }
-        .frame(width: 380, height: 620)
+        .frame(width: 660, height: 520)
         .onAppear {
             logManager.loadAndValidate()
             isInputFocused = true
@@ -156,6 +180,61 @@ struct DailyLogView: View {
         case ..<45:  return 28
         default:     return 34
         }
+    }
+}
+
+// MARK: - Time Period Column
+
+struct LogTimeColumn: View {
+    let title: String
+    let subtitle: String
+    let entries: [DailyLogEntry]
+    let timeFormatter: DateFormatter
+    let connectorHeightFn: (DailyLogEntry, DailyLogEntry?) -> CGFloat
+    let onDelete: (UUID) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // Column header
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.subheadline.bold())
+                    .foregroundStyle(Theme.Colors.primaryText)
+                Text(subtitle)
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 14)
+            .padding(.bottom, 10)
+
+            Divider()
+
+            if entries.isEmpty {
+                Spacer()
+                Text("暂无记录")
+                    .font(.caption)
+                    .foregroundStyle(.quaternary)
+                    .frame(maxWidth: .infinity)
+                Spacer()
+            } else {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 0) {
+                        ForEach(Array(entries.enumerated()), id: \.element.id) { index, entry in
+                            let next: DailyLogEntry? = index + 1 < entries.count ? entries[index + 1] : nil
+                            DailyLogEntryRow(
+                                entry: entry,
+                                connectorHeight: connectorHeightFn(entry, next),
+                                timeFormatter: timeFormatter,
+                                onDelete: { onDelete(entry.id) }
+                            )
+                        }
+                    }
+                    .padding(.vertical, 12)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 
