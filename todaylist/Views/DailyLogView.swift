@@ -146,7 +146,7 @@ struct DailyLogView: View {
             .padding(.horizontal, 24)
             .padding(.vertical, 16)
         }
-        .frame(width: 660, height: 520)
+        .frame(width: 660, height: 680)
         .onAppear {
             logManager.loadAndValidate()
             isInputFocused = true
