@@ -286,16 +286,15 @@ struct DailyLogEntryRow: View {
 
             Spacer()
 
-            // Delete button on hover
-            if isHovering {
-                Button(action: onDelete) {
-                    Image(systemName: "trash")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                .buttonStyle(.plain)
-                .padding(.top, 2)
+            // Delete button - always in layout, visible only on hover
+            Button(action: onDelete) {
+                Image(systemName: "trash")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
+            .buttonStyle(.plain)
+            .padding(.top, 2)
+            .opacity(isHovering ? 1 : 0)
         }
         .padding(.horizontal, 24)
         .contentShape(Rectangle())
