@@ -170,7 +170,7 @@ struct DailyLogView: View {
     /// Maps time gap between two entries to a connector line height.
     /// Uses log-scale buckets: small gaps → short line, large gaps → tall line.
     private static func connectorHeight(from entry: DailyLogEntry, to next: DailyLogEntry?) -> CGFloat {
-        guard let next = next else { return 6 } // last item
+        guard let next = next else { return 0 } // last item — no connector
         let minutes = next.timestamp.timeIntervalSince(entry.timestamp) / 60
         switch minutes {
         case ..<2:   return 6
@@ -250,16 +250,19 @@ struct DailyLogEntryRow: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
-            // Timeline indicator
+            // Timeline indicator: dot + line fills full row height
             VStack(spacing: 0) {
                 Circle()
                     .fill(Theme.Colors.todayAccent.opacity(0.7))
                     .frame(width: 6, height: 6)
                     .padding(.top, 4)
-                Rectangle()
-                    .fill(Theme.Colors.todayAccent.opacity(0.15))
-                    .frame(width: 1.5, height: connectorHeight)
+                if connectorHeight > 0 {
+                    Rectangle()
+                        .fill(Theme.Colors.todayAccent.opacity(0.15))
+                        .frame(width: 1.5)   // no fixed height — fills remaining VStack space
+                }
             }
+            .frame(maxHeight: .infinity, alignment: .top)
 
             // Content: time + text in one line, optional tag below
             VStack(alignment: .leading, spacing: 3) {
