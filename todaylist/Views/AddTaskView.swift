@@ -36,64 +36,64 @@ struct AddTaskView: View {
                     .onSubmit { addTask() }
                     .padding(.horizontal, 2)
                 
-                // 2. Metadata Row (Pills)
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 12) {
-                        // Context Pill
+                // 2. Context Pills (wrapping, no scroll)
+                FlowLayout(spacing: 8) {
+                    // Selected / default context
+                    Button {
+                        showContextPicker = true
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: Theme.Icons.folder)
+                                .font(.subheadline)
+                            Text(selectedContext?.fullPath ?? "Inbox")
+                                .font(.subheadline)
+                        }
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(Color.gray.opacity(0.15))
+                        .clipShape(Capsule())
+                        .foregroundStyle(.primary)
+                    }
+                    .buttonStyle(.plain)
+                    .popover(isPresented: $showContextPicker, arrowEdge: .bottom) {
+                        ContextPickerView(selectedContext: $selectedContext)
+                    }
+
+                    // Recent Context Pills
+                    ForEach(recentContexts, id: \.id) { ctx in
                         Button {
-                            showContextPicker = true
+                            selectedContext = ctx
                         } label: {
                             HStack(spacing: 6) {
                                 Image(systemName: Theme.Icons.folder)
                                     .font(.subheadline)
-                                Text(selectedContext?.fullPath ?? "Inbox")
+                                Text(ctx.name)
                                     .font(.subheadline)
                             }
                             .padding(.horizontal, 10)
                             .padding(.vertical, 6)
-                            .background(Color.gray.opacity(0.15))
+                            .background(Color.gray.opacity(0.08))
                             .clipShape(Capsule())
-                            .foregroundStyle(.primary)
+                            .foregroundStyle(.secondary)
                         }
                         .buttonStyle(.plain)
-                        .popover(isPresented: $showContextPicker, arrowEdge: .bottom) {
-                            ContextPickerView(selectedContext: $selectedContext)
-                        }
-
-                        // Recent Context Pills
-                        ForEach(recentContexts, id: \.id) { ctx in
-                            Button {
-                                selectedContext = ctx
-                            } label: {
-                                HStack(spacing: 6) {
-                                    Image(systemName: Theme.Icons.folder)
-                                        .font(.subheadline)
-                                    Text(ctx.name)
-                                        .font(.subheadline)
-                                }
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 6)
-                                .background(Color.gray.opacity(0.08))
-                                .clipShape(Capsule())
-                                .foregroundStyle(.secondary)
-                            }
-                            .buttonStyle(.plain)
-                        }
-
-                        // Date Pill (if applicable)
-                        if assignedDate != nil {
-                            HStack(spacing: 6) {
-                                Image(systemName: Theme.Icons.calendar)
-                                Text("Today")
-                            }
-                            .font(.subheadline)
-                            .foregroundStyle(.orange)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 6)
-                            .background(Color.orange.opacity(0.1))
-                            .clipShape(Capsule())
-                        }
                     }
+                }
+
+                // 3. Date pill — visually separated from contexts
+                if assignedDate != nil {
+                    Divider()
+                        .padding(.vertical, 2)
+                    HStack(spacing: 6) {
+                        Image(systemName: Theme.Icons.calendar)
+                        Text("Today")
+                    }
+                    .font(.subheadline)
+                    .foregroundStyle(.orange)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(Color.orange.opacity(0.1))
+                    .clipShape(Capsule())
                 }
                 
                 Spacer()
@@ -114,7 +114,7 @@ struct AddTaskView: View {
                 }
             }
             .padding(24)
-            .frame(width: 500, height: 220)
+            .frame(minWidth: 500, maxWidth: 500)
             .background(.background)
             .onAppear {
                 isFocused = true
@@ -122,7 +122,7 @@ struct AddTaskView: View {
             .navigationTitle("") // Hide default title
             .toolbar(.hidden, for: .windowToolbar) // Hide toolbar to use custom actions
         }
-        .frame(height: 220) // Compact height since we use popover now
+        // No fixed height — adapts to content
     }
     
     private func addTask() {
