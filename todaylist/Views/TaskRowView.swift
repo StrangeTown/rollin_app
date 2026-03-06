@@ -39,7 +39,7 @@ struct TaskRowView: View {
         HStack(alignment: .top) {
             // Checkbox with linear icon and animation
             Image(systemName: item.isCompleted ? Theme.Icons.taskComplete : Theme.Icons.taskIncomplete)
-                .foregroundStyle(item.isCompleted ? completedIconColor : .secondary)
+                .foregroundStyle(item.isCompleted ? completedIconColor : (isToday ? Theme.Colors.todayIncomplete : .secondary))
                 .scaleEffect(completionScale)
                 .contentShape(Rectangle().size(width: 24, height: 24))
                 .onTapGesture {

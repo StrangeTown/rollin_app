@@ -78,7 +78,11 @@ enum Theme {
             dark: Color.secondary.opacity(0.5)
         )
         
-        /// Primary text - slightly softened from pure black
+        /// Subtle red for incomplete Today tasks
+        static let todayIncomplete = Color(
+            light: Color(red: 0.85, green: 0.25, blue: 0.25).opacity(0.55),
+            dark: Color(red: 1.0, green: 0.45, blue: 0.45).opacity(0.55)
+        )
         static let primaryText = Color(
             light: Color(red: 0.15, green: 0.15, blue: 0.17),
             dark: Color(red: 0.92, green: 0.92, blue: 0.92)
