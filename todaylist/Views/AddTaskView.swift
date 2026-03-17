@@ -29,11 +29,15 @@ struct AddTaskView: View {
         NavigationStack {
             VStack(alignment: .leading, spacing: 20) {
                 // 1. Large, Clean Input
-                TextField(assignedDate != nil ? "Add a task for today..." : "What needs to be done?", text: $title)
+                TextField(
+                    assignedDate != nil ? "Add a task for today..." : "What needs to be done?",
+                    text: $title,
+                    axis: .vertical
+                )
                     .textFieldStyle(.plain)
                     .font(.system(size: 24, weight: .medium))
+                    .lineLimit(1...)
                     .focused($isFocused)
-                    .onSubmit { addTask() }
                     .padding(.horizontal, 2)
                 
                 // 2. Context Pills (wrapping, no scroll)

@@ -39,6 +39,7 @@ struct ContentView: View {
     @State private var contextParentForAdd: ContextNode?
     
     @State private var showAddTaskSheet = false
+    @State private var showInboxBatchAddDialog = false
     @State private var taskAssignedDate: Date? = nil
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
     @State private var showTimelineSheet = false
@@ -219,6 +220,11 @@ struct ContentView: View {
         .sheet(isPresented: $showAddTaskSheet) {
             AddTaskView(assignedDate: taskAssignedDate)
         }
+        .sheet(isPresented: $showInboxBatchAddDialog) {
+            InboxBatchAddToTodayView(items: inboxItems) { selectedItems in
+                batchMoveToToday(selectedItems)
+            }
+        }
         .id(taskAssignedDate)
         .sheet(isPresented: $showTimelineSheet) {
             TodayTimelineView(currentDate: currentDate)
@@ -356,6 +362,15 @@ struct ContentView: View {
         withAnimation {
             // Assign current date to move from Inbox to Today
             item.assignedDate = Date()
+        }
+    }
+
+    private func batchMoveToToday(_ items: [Item]) {
+        withAnimation {
+            let now = Date()
+            for item in items {
+                item.assignedDate = now
+            }
         }
     }
 
@@ -509,9 +524,19 @@ struct ContentView: View {
             }
             .buttonStyle(.borderless)
             .foregroundStyle(.secondary)
-            .padding(.trailing, 8)
             .help("Add new task to Inbox (⌘I)")
             .keyboardShortcut("i", modifiers: .command)
+
+            Button {
+                showInboxBatchAddDialog = true
+            } label: {
+                Image(systemName: Theme.Icons.moveToToday)
+            }
+            .buttonStyle(.borderless)
+            .foregroundStyle(.secondary)
+            .padding(.trailing, 8)
+            .help("Batch add Inbox tasks to Today")
+            .disabled(inboxItems.isEmpty)
         }
         .padding(.bottom, 4)
     }

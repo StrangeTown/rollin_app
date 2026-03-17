@@ -21,11 +21,11 @@ struct EditTaskView: View {
         NavigationStack {
             VStack(alignment: .leading, spacing: 20) {
                 // 1. Large, Clean Input
-                TextField("Task name", text: $title)
+                TextField("Task name", text: $title, axis: .vertical)
                     .textFieldStyle(.plain)
                     .font(.system(size: 24, weight: .medium))
+                    .lineLimit(1...)
                     .focused($isFocused)
-                    .onSubmit { saveTask() }
                     .padding(.horizontal, 2)
                 
                 // 2. Metadata Row (Pills)
