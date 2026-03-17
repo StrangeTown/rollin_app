@@ -9,11 +9,13 @@ struct TaskRowView: View {
     let onEdit: () -> Void
     let isScheduled: Bool
     let isToday: Bool
+    let showContextTag: Bool
     var onStartTask: (() -> Void)? = nil
 
     // State for hover effect on action button
     @State private var isActionHovering = false
     @State private var isTimerHovering = false
+    @State private var isCheckboxHovering = false
 
     // State for completion animation
     @State private var completionScale: CGFloat = 1.0
@@ -56,6 +58,21 @@ struct TaskRowView: View {
                     }
                     onToggleCompletion()
                 }
+                .onHover { hovering in
+                    if hovering, !isCheckboxHovering {
+                        NSCursor.pointingHand.push()
+                        isCheckboxHovering = true
+                    } else if !hovering, isCheckboxHovering {
+                        NSCursor.pop()
+                        isCheckboxHovering = false
+                    }
+                }
+                .onDisappear {
+                    if isCheckboxHovering {
+                        NSCursor.pop()
+                        isCheckboxHovering = false
+                    }
+                }
 
             VStack(alignment: .leading, spacing: Theme.Spacing.taskRowInternal) {
                 Text(item.title)
@@ -65,8 +82,7 @@ struct TaskRowView: View {
                     .fixedSize(horizontal: false, vertical: true)
                     .multilineTextAlignment(.leading)
 
-                // Breadcrumb: only show in scheduled view (detail), hide in Inbox (sidebar)
-                if isScheduled, let context = item.context {
+                if (isScheduled || showContextTag), let context = item.context {
                     Text(context.fullPath.replacingOccurrences(of: " / ", with: " › "))
                         .breadcrumbTagStyle()
                 }

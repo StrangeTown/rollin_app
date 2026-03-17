@@ -9,6 +9,11 @@ import SwiftUI
 import SwiftData
 
 struct ContentView: View {
+    private enum TodayTaskFilterMode {
+        case all
+        case incomplete
+    }
+
     // MARK: - Environment & State
     @Environment(\.modelContext) private var modelContext
     @Environment(\.scenePhase) private var scenePhase
@@ -39,6 +44,7 @@ struct ContentView: View {
     @State private var showTimelineSheet = false
     @State private var showDailyLogSheet = false
     @State private var showWeeklyMatrix = false
+    @State private var todayTaskFilterMode: TodayTaskFilterMode = .all
     
     @State private var taskToEdit: Item?
     @State private var showSettings = false
@@ -71,7 +77,7 @@ struct ContentView: View {
                 inboxSection
                 contextSection
             }
-            .navigationSplitViewColumnWidth(min: 250, ideal: 300)
+            .navigationSplitViewColumnWidth(min: 300, ideal: 360)
             .toolbar {
                 ToolbarItem(placement: .automatic) {
                     Button(action: { showSettings = true }) {
@@ -95,7 +101,9 @@ struct ContentView: View {
                             HStack {
                                 sectionHeaderView(for: date)
                                 if Calendar.current.isDate(date, inSameDayAs: currentDate) {
+                                    todayTaskFilterControl
                                     Spacer()
+
                                     Button(action: {
                                         showDailyLogSheet = true
                                     }) {
@@ -124,24 +132,33 @@ struct ContentView: View {
                             }
                         ) {
                             let isTodaySection = Calendar.current.isDate(date, inSameDayAs: currentDate)
-                            ForEach(grouped[date]!) { item in
-                                TaskRowView(
-                                    item: item,
-                                    onToggleCompletion: { toggleCompletion(for: item) },
-                                    onMove: { removeFromToday(item) },
-                                    onDelete: { deleteItem(item) },
-                                    onEdit: {
-                                        taskToEdit = item
-                                    },
-                                    isScheduled: true,
-                                    isToday: isTodaySection,
-                                    onStartTask: isTodaySection ? { startTask(item) } : nil
-                                )
-                                .listRowSeparator(.hidden)
-                                .listRowInsets(EdgeInsets(top: Theme.Spacing.listItemVertical, leading: 0, bottom: Theme.Spacing.listItemVertical, trailing: 0))
-                            }
-                            .onDelete { offsets in
-                                deleteScheduledItems(at: offsets, in: grouped[date]!)
+                            let sectionItems = filteredItems(for: date, items: grouped[date] ?? [])
+                            if sectionItems.isEmpty, isTodaySection, todayTaskFilterMode == .incomplete {
+                                Text("今天没有未完成任务")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                                    .padding(.vertical, 8)
+                            } else {
+                                ForEach(sectionItems) { item in
+                                    TaskRowView(
+                                        item: item,
+                                        onToggleCompletion: { toggleCompletion(for: item) },
+                                        onMove: { removeFromToday(item) },
+                                        onDelete: { deleteItem(item) },
+                                        onEdit: {
+                                            taskToEdit = item
+                                        },
+                                        isScheduled: true,
+                                        isToday: isTodaySection,
+                                        showContextTag: false,
+                                        onStartTask: isTodaySection ? { startTask(item) } : nil
+                                    )
+                                    .listRowSeparator(.hidden)
+                                    .listRowInsets(EdgeInsets(top: Theme.Spacing.listItemVertical, leading: 0, bottom: Theme.Spacing.listItemVertical, trailing: 0))
+                                }
+                                .onDelete { offsets in
+                                    deleteScheduledItems(at: offsets, in: sectionItems)
+                                }
                             }
                         }
                     }
@@ -273,6 +290,48 @@ struct ContentView: View {
                     .foregroundStyle(.secondary)
             }
         }
+    }
+
+    private func filteredItems(for date: Date, items: [Item]) -> [Item] {
+        guard Calendar.current.isDate(date, inSameDayAs: currentDate),
+              todayTaskFilterMode == .incomplete else {
+            return items
+        }
+        return items.filter { !$0.isCompleted }
+    }
+
+    private var todayTaskFilterControl: some View {
+        HStack(spacing: 2) {
+            todayTaskFilterButton(
+                mode: .all,
+                icon: "line.3.horizontal",
+                helpText: "显示今天所有任务"
+            )
+            todayTaskFilterButton(
+                mode: .incomplete,
+                icon: Theme.Icons.taskIncomplete,
+                helpText: "仅显示今天未完成任务"
+            )
+        }
+        .padding(2)
+        .background(Color.secondary.opacity(0.12))
+        .clipShape(Capsule())
+    }
+
+    private func todayTaskFilterButton(mode: TodayTaskFilterMode, icon: String, helpText: String) -> some View {
+        let isSelected = todayTaskFilterMode == mode
+        return Button {
+            todayTaskFilterMode = mode
+        } label: {
+            Image(systemName: icon)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(isSelected ? Theme.Colors.todayAccent : .secondary)
+                .frame(width: 22, height: 22)
+                .background(isSelected ? Theme.Colors.todayAccent.opacity(0.16) : Color.clear)
+                .clipShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .help(helpText)
     }
 
     private func toggleCompletion(for item: Item) {
@@ -420,7 +479,8 @@ struct ContentView: View {
                         taskToEdit = item
                     },
                     isScheduled: false,
-                    isToday: false
+                    isToday: false,
+                    showContextTag: true
                 )
             }
             .onDelete(perform: deleteInboxItems)
@@ -675,7 +735,8 @@ struct ContextDetailView: View {
                             taskToEdit = item
                         },
                         isScheduled: item.assignedDate != nil,
-                        isToday: false
+                        isToday: false,
+                        showContextTag: false
                     )
                 }
             }
@@ -718,4 +779,3 @@ struct ContextDetailView: View {
     ContentView()
         .modelContainer(for: [Item.self, ContextNode.self], inMemory: true)
 }
-

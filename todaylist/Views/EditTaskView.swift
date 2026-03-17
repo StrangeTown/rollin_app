@@ -37,7 +37,7 @@ struct EditTaskView: View {
                         HStack(spacing: 6) {
                             Image(systemName: Theme.Icons.folder)
                                 .font(.subheadline)
-                            Text(selectedContext?.fullPath ?? "Inbox")
+                            Text(selectedContext?.fullPath ?? "无关联上下文")
                                 .font(.subheadline)
                         }
                         .padding(.horizontal, 10)

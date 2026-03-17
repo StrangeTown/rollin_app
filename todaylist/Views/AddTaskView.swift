@@ -45,7 +45,7 @@ struct AddTaskView: View {
                         HStack(spacing: 6) {
                             Image(systemName: Theme.Icons.folder)
                                 .font(.subheadline)
-                            Text(selectedContext?.fullPath ?? "Inbox")
+                            Text(selectedContext?.fullPath ?? "无关联上下文")
                                 .font(.subheadline)
                         }
                         .padding(.horizontal, 10)
@@ -67,7 +67,7 @@ struct AddTaskView: View {
                             HStack(spacing: 6) {
                                 Image(systemName: Theme.Icons.folder)
                                     .font(.subheadline)
-                                Text(ctx.name)
+                                Text(ctx.fullPath)
                                     .font(.subheadline)
                             }
                             .padding(.horizontal, 10)
