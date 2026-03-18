@@ -29,6 +29,12 @@ struct todaylistApp: App {
         .commands {
             // Single-window app: disable default "New" command (⌘N).
             CommandGroup(replacing: .newItem) { }
+            CommandMenu("Command Palette") {
+                Button("Open Command Palette") {
+                    NotificationCenter.default.post(name: .openCommandPalette, object: nil)
+                }
+                .keyboardShortcut("p", modifiers: [.command, .shift])
+            }
         }
         
         Settings {

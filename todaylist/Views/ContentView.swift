@@ -49,6 +49,7 @@ struct ContentView: View {
     @State private var todayTaskFilterMode: TodayTaskFilterMode = .all
     @State private var todayContextFilter: ContextNode?
     @State private var showTodayContextFilterPicker = false
+    @State private var showCommandPalette = false
     
     @State private var taskToEdit: Item?
     @State private var showSettings = false
@@ -189,6 +190,19 @@ struct ContentView: View {
                 )
                 .transition(.opacity)
             }
+            if showCommandPalette {
+                Color.black.opacity(0.2)
+                    .edgesIgnoringSafeArea(.all)
+                    .onTapGesture {
+                        showCommandPalette = false
+                    }
+                
+                CommandPaletteView(commands: commandPaletteCommands) {
+                    showCommandPalette = false
+                }
+                .transition(.identity)
+                .zIndex(100)
+            }
         }
         // MARK: - Lifecycle & Events
         .background {
@@ -227,6 +241,9 @@ struct ContentView: View {
             currentDate = Date()
             moveOverdueTasksToInbox()
             DailyLogManager.shared.loadAndValidate()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .openCommandPalette)) { _ in
+            showCommandPalette = true
         }
         .sheet(isPresented: $showAddTaskSheet) {
             AddTaskView(assignedDate: taskAssignedDate)
@@ -268,6 +285,76 @@ struct ContentView: View {
         Dictionary(grouping: scheduledItems) { item in
             Calendar.current.startOfDay(for: item.assignedDate!)
         }
+    }
+
+    private var commandPaletteCommands: [CommandPaletteCommand] {
+        [
+            CommandPaletteCommand(
+                id: "new-inbox-task",
+                title: "新建任务",
+                subtitle: "在 Inbox 中创建任务",
+                shortcut: "⌘I",
+                keywords: ["inbox", "task", "new", "新建", "任务"]
+            ) {
+                taskAssignedDate = nil
+                showAddTaskSheet = true
+            },
+            CommandPaletteCommand(
+                id: "new-today-task",
+                title: "新建今日任务",
+                subtitle: "直接创建到今天",
+                shortcut: "⌘T",
+                keywords: ["today", "task", "new", "今日", "新建", "任务"]
+            ) {
+                taskAssignedDate = currentDate
+                showAddTaskSheet = true
+            },
+            CommandPaletteCommand(
+                id: "batch-add-to-today",
+                title: "批量添加到今天",
+                subtitle: "从 Inbox 选择多条任务加入今天",
+                shortcut: "",
+                keywords: ["batch", "today", "inbox", "批量", "今天"]
+            ) {
+                showInboxBatchAddDialog = true
+            },
+            CommandPaletteCommand(
+                id: "open-timeline",
+                title: "打开任务时间轴",
+                subtitle: "查看今天完成任务的时间线",
+                shortcut: "",
+                keywords: ["timeline", "today", "时间轴", "今天"]
+            ) {
+                showTimelineSheet = true
+            },
+            CommandPaletteCommand(
+                id: "open-daily-log",
+                title: "打开流水账",
+                subtitle: "记录今天过程",
+                shortcut: "",
+                keywords: ["log", "daily", "流水账", "记录"]
+            ) {
+                showDailyLogSheet = true
+            },
+            CommandPaletteCommand(
+                id: "open-weekly-review",
+                title: "打开周回顾",
+                subtitle: "查看周度矩阵",
+                shortcut: "",
+                keywords: ["weekly", "review", "周回顾", "回顾"]
+            ) {
+                showWeeklyMatrix = true
+            },
+            CommandPaletteCommand(
+                id: "open-settings",
+                title: "打开设置",
+                subtitle: "进入应用设置",
+                shortcut: "",
+                keywords: ["settings", "设置", "preferences"]
+            ) {
+                showSettings = true
+            }
+        ]
     }
     
     // MARK: - Helper Methods
