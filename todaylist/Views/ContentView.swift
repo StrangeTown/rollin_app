@@ -46,6 +46,8 @@ struct ContentView: View {
     @State private var showDailyLogSheet = false
     @State private var showWeeklyMatrix = false
     @State private var todayTaskFilterMode: TodayTaskFilterMode = .all
+    @State private var todayContextFilter: ContextNode?
+    @State private var showTodayContextFilterPicker = false
     
     @State private var taskToEdit: Item?
     @State private var showSettings = false
@@ -141,8 +143,8 @@ struct ContentView: View {
                         ) {
                             let isTodaySection = Calendar.current.isDate(date, inSameDayAs: currentDate)
                             let sectionItems = filteredItems(for: date, items: grouped[date] ?? [])
-                            if sectionItems.isEmpty, isTodaySection, todayTaskFilterMode == .incomplete {
-                                Text("今天没有未完成任务")
+                            if sectionItems.isEmpty, isTodaySection {
+                                Text(todaySectionEmptyMessage)
                                     .font(.subheadline)
                                     .foregroundStyle(.secondary)
                                     .padding(.vertical, 8)
@@ -310,54 +312,190 @@ struct ContentView: View {
     }
 
     private func filteredItems(for date: Date, items: [Item]) -> [Item] {
-        guard Calendar.current.isDate(date, inSameDayAs: currentDate),
-              todayTaskFilterMode == .incomplete else {
+        guard Calendar.current.isDate(date, inSameDayAs: currentDate) else {
             return items
         }
-        return items.filter { !$0.isCompleted }
+
+        var filtered = items
+        if todayTaskFilterMode == .incomplete {
+            filtered = filtered.filter { !$0.isCompleted }
+        }
+
+        if let contextFilter = todayContextFilter {
+            filtered = filtered.filter { itemMatchesTodayContextFilter($0, selectedContext: contextFilter) }
+        }
+
+        return filtered
+    }
+
+    private var todaySectionEmptyMessage: String {
+        if let context = todayContextFilter {
+            return "“\(context.name)”下今天没有任务"
+        }
+        if todayTaskFilterMode == .incomplete {
+            return "今天没有未完成任务"
+        }
+        return "今天没有任务"
     }
 
     private var todayTaskFilterControl: some View {
         HStack(spacing: 0) {
             filterButton(
                 mode: .all,
-                icon: "line.3.horizontal",
+                title: "全部",
                 help: "显示所有任务"
             )
             
             Divider()
                 .frame(height: 12)
-                .background(Color.secondary.opacity(0.2))
+                .background(Color.secondary.opacity(0.12))
             
             filterButton(
                 mode: .incomplete,
-                icon: Theme.Icons.taskIncomplete,
+                title: "未完成",
                 help: "仅显示未完成"
             )
+
+            Divider()
+                .frame(height: 12)
+                .background(Color.secondary.opacity(0.12))
+
+            todayContextFilterMenu
         }
         .padding(.horizontal, 4)
         .padding(.vertical, 2)
         .background(
             Capsule()
-                .fill(Color.secondary.opacity(0.1))
+                .fill(Color.secondary.opacity(0.06))
         )
     }
 
-    private func filterButton(mode: TodayTaskFilterMode, icon: String, help: String) -> some View {
+    private func filterButton(mode: TodayTaskFilterMode, title: String, help: String) -> some View {
         let isSelected = todayTaskFilterMode == mode
         return Button {
             withAnimation(.snappy(duration: 0.2)) {
                 todayTaskFilterMode = mode
             }
         } label: {
-            Image(systemName: icon)
-                .font(.system(size: 13, weight: .regular))
-                .foregroundStyle(isSelected ? Theme.Colors.todayAccent : .secondary.opacity(0.8))
-                .frame(width: 24, height: 20)
+            Text(title)
+                .font(.system(size: 10, weight: .regular))
+                .foregroundStyle(isSelected ? Theme.Colors.todayAccent : .secondary.opacity(0.72))
+                .padding(.horizontal, 8)
+                .frame(height: 20)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .help(help)
+    }
+
+    private var todayContextFilterMenu: some View {
+        Button {
+            showTodayContextFilterPicker = true
+        } label: {
+            Text(todayContextFilter?.fullPath ?? "上下文")
+                .lineLimit(1)
+                .truncationMode(.tail)
+                .font(.system(size: 10, weight: .regular))
+                .foregroundStyle(todayContextFilter == nil ? .secondary.opacity(0.72) : Theme.Colors.todayAccent)
+                .padding(.horizontal, 8)
+                .frame(height: 20)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help(todayContextFilter?.fullPath ?? "按上下文过滤今天任务")
+        .popover(isPresented: $showTodayContextFilterPicker, arrowEdge: .bottom) {
+            todayContextFilterPickerView
+        }
+    }
+
+    private var todayContextFilterPickerView: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Button {
+                todayContextFilter = nil
+                showTodayContextFilterPicker = false
+            } label: {
+                contextFilterOptionLabel(
+                    title: "不按上下文过滤",
+                    isSelected: todayContextFilter == nil
+                )
+            }
+            .buttonStyle(.plain)
+
+            Divider()
+                .padding(.vertical, 2)
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 2) {
+                    ForEach(todayContextOptions, id: \.id) { context in
+                        Button {
+                            todayContextFilter = context
+                            showTodayContextFilterPicker = false
+                        } label: {
+                            contextFilterOptionLabel(
+                                title: context.fullPath,
+                                isSelected: todayContextFilter?.id == context.id
+                            )
+                        }
+                        .buttonStyle(.plain)
+                        .help(context.fullPath)
+                    }
+                }
+            }
+        }
+        .padding(10)
+        .frame(minWidth: 260, idealWidth: 300, maxWidth: 320, minHeight: 120, maxHeight: 280)
+    }
+
+    private func contextFilterOptionLabel(title: String, isSelected: Bool) -> some View {
+        HStack(spacing: 8) {
+            Text(title)
+                .lineLimit(1)
+                .truncationMode(.tail)
+                .font(.system(size: 12, weight: .regular))
+
+            Spacer(minLength: 0)
+
+            if isSelected {
+                Image(systemName: "checkmark")
+                    .font(.system(size: 11, weight: .semibold))
+            }
+        }
+        .foregroundStyle(isSelected ? Theme.Colors.todayAccent : .primary)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 6)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(isSelected ? Theme.Colors.todayAccent.opacity(0.1) : Color.clear)
+        .clipShape(RoundedRectangle(cornerRadius: 6))
+    }
+
+    private var todayContextOptions: [ContextNode] {
+        let calendar = Calendar.current
+        var uniqueByID: [UUID: ContextNode] = [:]
+
+        for item in scheduledItems {
+            guard let assignedDate = item.assignedDate,
+                  calendar.isDate(assignedDate, inSameDayAs: currentDate),
+                  let context = item.context else {
+                continue
+            }
+            uniqueByID[context.id] = context
+        }
+
+        return uniqueByID.values.sorted {
+            $0.fullPath.localizedStandardCompare($1.fullPath) == .orderedAscending
+        }
+    }
+
+    private func itemMatchesTodayContextFilter(_ item: Item, selectedContext: ContextNode) -> Bool {
+        guard let itemContext = item.context else { return false }
+        var current: ContextNode? = itemContext
+        while let node = current {
+            if node.id == selectedContext.id {
+                return true
+            }
+            current = node.parent
+        }
+        return false
     }
 
     private func toggleCompletion(for item: Item) {

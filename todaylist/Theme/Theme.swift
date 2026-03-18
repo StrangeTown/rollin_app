@@ -86,8 +86,8 @@ enum Theme {
 
         /// Priority title color for Today tasks
         static let todayPriorityTitle = Color(
-            light: Color(red: 0.88, green: 0.2, blue: 0.2),
-            dark: Color(red: 1.0, green: 0.42, blue: 0.42)
+            light: Color(red: 0.56, green: 0.24, blue: 0.24),
+            dark: Color(red: 0.74, green: 0.43, blue: 0.43)
         )
         static let primaryText = Color(
             light: Color(red: 0.15, green: 0.15, blue: 0.17),
