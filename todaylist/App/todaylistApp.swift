@@ -26,6 +26,10 @@ struct todaylistApp: App {
             ContentView()
         }
         .modelContainer(sharedModelContainer)
+        .commands {
+            // Single-window app: disable default "New" command (⌘N).
+            CommandGroup(replacing: .newItem) { }
+        }
         
         Settings {
             SettingsView()

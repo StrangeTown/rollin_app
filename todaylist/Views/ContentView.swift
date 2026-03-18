@@ -35,6 +35,7 @@ struct ContentView: View {
     private var rootContexts: [ContextNode]
     
     @State private var selectedContext: ContextNode?
+    @State private var contextRootToEdit: ContextNode?
     @State private var showAddContextAlert = false
     @State private var contextParentForAdd: ContextNode?
     
@@ -249,6 +250,9 @@ struct ContentView: View {
         .sheet(isPresented: $showWeeklyMatrix) {
             ReviewView()
         }
+        .sheet(item: $contextRootToEdit) { rootContext in
+            ContextEditorSheetView(rootContext: rootContext, selectedContext: $selectedContext)
+        }
         .sheet(item: $taskToEdit) { item in
             EditTaskView(item: item)
         }
@@ -420,6 +424,8 @@ struct ContentView: View {
                 )
             }
             .buttonStyle(.plain)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
 
             Divider()
                 .padding(.vertical, 2)
@@ -437,10 +443,14 @@ struct ContentView: View {
                             )
                         }
                         .buttonStyle(.plain)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .contentShape(Rectangle())
                         .help(context.fullPath)
                     }
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(10)
         .frame(minWidth: 260, idealWidth: 300, maxWidth: 320, minHeight: 120, maxHeight: 280)
@@ -464,6 +474,7 @@ struct ContentView: View {
         .padding(.horizontal, 8)
         .padding(.vertical, 6)
         .frame(maxWidth: .infinity, alignment: .leading)
+        .contentShape(Rectangle())
         .background(isSelected ? Theme.Colors.todayAccent.opacity(0.1) : Color.clear)
         .clipShape(RoundedRectangle(cornerRadius: 6))
     }
@@ -656,6 +667,18 @@ struct ContentView: View {
         let minOrder = siblings.map(\.sortOrder).min() ?? 0
         context.sortOrder = minOrder - 1
     }
+
+    private func openContextEditor(for node: ContextNode) {
+        contextRootToEdit = topLevelContext(for: node)
+    }
+
+    private func topLevelContext(for node: ContextNode) -> ContextNode {
+        var current = node
+        while let parent = current.parent {
+            current = parent
+        }
+        return current
+    }
     
     // MARK: - View Builders
     
@@ -729,7 +752,8 @@ struct ContentView: View {
                     contextParentForAdd: $contextParentForAdd,
                     showAddContextAlert: $showAddContextAlert,
                     onDelete: deleteContext,
-                    onMoveToFront: moveContextToFront
+                    onMoveToFront: moveContextToFront,
+                    onEdit: openContextEditor
                 )
             }
         }
@@ -779,10 +803,11 @@ struct ContextTreeRow: View {
     @Binding var showAddContextAlert: Bool
     let onDelete: (ContextNode) -> Void
     let onMoveToFront: (ContextNode) -> Void
+    let onEdit: (ContextNode) -> Void
 
     @State private var isHovering = false
 
-    init(node: ContextNode, depth: Int = 0, selectedContext: Binding<ContextNode?>, contextParentForAdd: Binding<ContextNode?>, showAddContextAlert: Binding<Bool>, onDelete: @escaping (ContextNode) -> Void, onMoveToFront: @escaping (ContextNode) -> Void) {
+    init(node: ContextNode, depth: Int = 0, selectedContext: Binding<ContextNode?>, contextParentForAdd: Binding<ContextNode?>, showAddContextAlert: Binding<Bool>, onDelete: @escaping (ContextNode) -> Void, onMoveToFront: @escaping (ContextNode) -> Void, onEdit: @escaping (ContextNode) -> Void) {
         self.node = node
         self.depth = depth
         _selectedContext = selectedContext
@@ -790,6 +815,7 @@ struct ContextTreeRow: View {
         _showAddContextAlert = showAddContextAlert
         self.onDelete = onDelete
         self.onMoveToFront = onMoveToFront
+        self.onEdit = onEdit
     }
 
     private var hasChildren: Bool {
@@ -813,7 +839,8 @@ struct ContextTreeRow: View {
                             contextParentForAdd: $contextParentForAdd,
                             showAddContextAlert: $showAddContextAlert,
                             onDelete: onDelete,
-                            onMoveToFront: onMoveToFront
+                            onMoveToFront: onMoveToFront,
+                            onEdit: onEdit
                         )
                         .padding(.leading, Theme.Spacing.childIndent)
                     }
@@ -862,6 +889,9 @@ struct ContextTreeRow: View {
         }
         .onHover { isHovering = $0 }
         .contextMenu {
+            Button("Edit Context") {
+                onEdit(node)
+            }
             Button("Move to Front") {
                 onMoveToFront(node)
             }
