@@ -74,44 +74,47 @@ struct TaskRowView: View {
                     }
                 }
 
-            VStack(alignment: .leading, spacing: Theme.Spacing.taskRowInternal) {
-                Text(item.title)
-                    .foregroundStyle(item.isCompleted ? Theme.Colors.completedText : Theme.Colors.primaryText)
-                    .strikethrough(item.isCompleted)
-                    .lineLimit(nil)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .multilineTextAlignment(.leading)
+            HStack(alignment: .top, spacing: 0) {
+                VStack(alignment: .leading, spacing: Theme.Spacing.taskRowInternal) {
+                    Text(item.title)
+                        .foregroundStyle(item.isCompleted ? Theme.Colors.completedText : Theme.Colors.primaryText)
+                        .strikethrough(item.isCompleted)
+                        .lineLimit(nil)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .multilineTextAlignment(.leading)
 
-                if (isScheduled || showContextTag), let context = item.context {
-                    Text(context.fullPath.replacingOccurrences(of: " / ", with: " › "))
-                        .breadcrumbTagStyle()
-                }
-
-                // Show elapsed time for tracked tasks (in-progress: live; paused: static)
-                if isToday && item.hasBeenTracked && !item.isCompleted {
-                    if item.isInProgress, let startedAt = item.startedAt {
-                        ElapsedTimeView(since: startedAt, accumulated: item.accumulatedDuration)
-                    } else {
-                        Text("⏱ \(ElapsedTimeView.formatDuration(item.accumulatedDuration))")
-                            .font(Theme.Fonts.completionTime)
-                            .foregroundStyle(Theme.Colors.completionTime)
+                    if (isScheduled || showContextTag), let context = item.context {
+                        Text(context.fullPath.replacingOccurrences(of: " / ", with: " › "))
+                            .breadcrumbTagStyle()
                     }
-                }
 
-                // Show completion time below title for today's completed tasks
-                if isToday && item.isCompleted, let completedAt = item.completedAt {
-                    HStack(spacing: 4) {
-                        Text("· \(Self.timeFormatter.string(from: completedAt))")
-                        if item.hasBeenTracked, let duration = item.totalDuration {
-                            Text("(\(ElapsedTimeView.formatDuration(duration)))")
+                    // Show elapsed time for tracked tasks (in-progress: live; paused: static)
+                    if isToday && item.hasBeenTracked && !item.isCompleted {
+                        if item.isInProgress, let startedAt = item.startedAt {
+                            ElapsedTimeView(since: startedAt, accumulated: item.accumulatedDuration)
+                        } else {
+                            Text("⏱ \(ElapsedTimeView.formatDuration(item.accumulatedDuration))")
+                                .font(Theme.Fonts.completionTime)
+                                .foregroundStyle(Theme.Colors.completionTime)
                         }
                     }
-                    .font(Theme.Fonts.completionTime)
-                    .foregroundColor(Theme.Colors.completionTime)
-                }
-            }
 
-            Spacer()
+                    // Show completion time below title for today's completed tasks
+                    if isToday && item.isCompleted, let completedAt = item.completedAt {
+                        HStack(spacing: 4) {
+                            Text("· \(Self.timeFormatter.string(from: completedAt))")
+                            if item.hasBeenTracked, let duration = item.totalDuration {
+                                Text("(\(ElapsedTimeView.formatDuration(duration)))")
+                            }
+                        }
+                        .font(Theme.Fonts.completionTime)
+                        .foregroundColor(Theme.Colors.completionTime)
+                    }
+                }
+                Spacer(minLength: 0)
+            }
+            .contentShape(Rectangle())
+            .onTapGesture(count: 2, perform: onEdit)
 
             // Timer play/pause button
             if isToday && !item.isCompleted, let onStartTask {
