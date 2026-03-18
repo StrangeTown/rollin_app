@@ -7,8 +7,14 @@
 
 import SwiftUI
 import SwiftData
+import AppKit
 
 struct ContextPickerView: View {
+    private enum ActivePickerRow: Equatable {
+        case noneContext
+        case context(UUID)
+    }
+
     @Environment(\.dismiss) private var dismiss
     @Query(sort: \ContextNode.sortOrder)
     private var allContexts: [ContextNode]
@@ -16,6 +22,8 @@ struct ContextPickerView: View {
     @Binding var selectedContext: ContextNode?
     @State private var searchText = ""
     @State private var expandedNodes: Set<UUID> = []
+    @State private var activeRow: ActivePickerRow?
+    @State private var keyEventMonitor: Any?
     @FocusState private var isSearchFieldFocused: Bool
 
     private var normalizedSearchText: String {
@@ -74,6 +82,14 @@ struct ContextPickerView: View {
             )
         }
         return flattenRegular(roots)
+    }
+
+    private var displayedContextIDs: [UUID] {
+        displayedContexts.map(\.node.id)
+    }
+
+    private var keyboardNavigableRows: [ActivePickerRow] {
+        [.noneContext] + displayedContextIDs.map { .context($0) }
     }
 
     private func flattenRegular(_ nodes: [ContextNode], level: Int = 0) -> [FlatContextNode] {
@@ -196,13 +212,21 @@ struct ContextPickerView: View {
             DispatchQueue.main.async {
                 isSearchFieldFocused = true
             }
+            activeRow = nil
+            installKeyboardMonitor()
+        }
+        .onDisappear {
+            removeKeyboardMonitor()
+        }
+        .onChange(of: displayedContextIDs) { _, _ in
+            syncActiveRowWithVisibleRows()
         }
     }
 
     private var noContextRow: some View {
-        Button {
-            selectedContext = nil
-            dismiss()
+        let isActive = activeRow == .noneContext
+        return Button {
+            selectRow(.noneContext)
         } label: {
             HStack(spacing: 10) {
                 Image(systemName: "xmark.circle")
@@ -217,6 +241,10 @@ struct ContextPickerView: View {
             .padding(.vertical, 6)
         }
         .buttonStyle(.plain)
+        .padding(.horizontal, 4)
+        .padding(.vertical, 2)
+        .background(isActive ? Color.accentColor.opacity(0.14) : (selectedContext == nil ? Color.accentColor.opacity(0.08) : Color.clear))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
         .contentShape(Rectangle())
     }
 
@@ -233,7 +261,8 @@ struct ContextPickerView: View {
     }
 
     private func contextRow(_ item: FlatContextNode) -> some View {
-        HStack(spacing: 0) {
+        let isActive = activeRow == .context(item.node.id)
+        return HStack(spacing: 0) {
             if item.hasVisibleChildren {
                 if isSearching {
                     Image(systemName: item.isExpanded ? "chevron.down" : "chevron.right")
@@ -267,12 +296,11 @@ struct ContextPickerView: View {
         }
         .padding(.horizontal, 4)
         .padding(.vertical, 2)
-        .background(selectedContext == item.node ? Color.accentColor.opacity(0.08) : Color.clear)
+        .background(isActive ? Color.accentColor.opacity(0.14) : (selectedContext == item.node ? Color.accentColor.opacity(0.08) : Color.clear))
         .clipShape(RoundedRectangle(cornerRadius: 8))
         .contentShape(Rectangle())
         .onTapGesture {
-            selectedContext = item.node
-            dismiss()
+            selectRow(.context(item.node.id))
         }
     }
 
@@ -281,6 +309,127 @@ struct ContextPickerView: View {
             expandedNodes.remove(node.id)
         } else {
             expandedNodes.insert(node.id)
+        }
+    }
+
+    private func syncActiveRowWithVisibleRows() {
+        guard let activeRow else { return }
+        switch activeRow {
+        case .noneContext:
+            return
+        case .context(let id):
+            guard displayedContextIDs.contains(id) else {
+                self.activeRow = nil
+                return
+            }
+        }
+    }
+
+    private func installKeyboardMonitor() {
+        guard keyEventMonitor == nil else { return }
+        keyEventMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            handleKeyEvent(event) ? nil : event
+        }
+    }
+
+    private func removeKeyboardMonitor() {
+        guard let keyEventMonitor else { return }
+        NSEvent.removeMonitor(keyEventMonitor)
+        self.keyEventMonitor = nil
+    }
+
+    private func handleKeyEvent(_ event: NSEvent) -> Bool {
+        guard event.modifierFlags.intersection([.command, .option, .control]).isEmpty else {
+            return false
+        }
+
+        switch event.keyCode {
+        case 125: // down
+            moveActiveRow(down: true)
+            return true
+        case 126: // up
+            moveActiveRow(down: false)
+            return true
+        case 124: // right
+            guard activeRow != nil else { return false }
+            return expandFocusedContext()
+        case 123: // left
+            guard activeRow != nil else { return false }
+            return collapseOrMoveToParent()
+        case 36, 76: // return / keypad enter
+            guard let activeRow else { return false }
+            selectRow(activeRow)
+            return true
+        default:
+            return false
+        }
+    }
+
+    private func moveActiveRow(down: Bool) {
+        let rows = keyboardNavigableRows
+        guard !rows.isEmpty else { return }
+
+        guard let activeRow, let currentIndex = rows.firstIndex(of: activeRow) else {
+            self.activeRow = down ? rows.first : rows.last
+            return
+        }
+
+        let nextIndex: Int
+        if down {
+            nextIndex = min(currentIndex + 1, rows.count - 1)
+        } else {
+            nextIndex = max(currentIndex - 1, 0)
+        }
+        self.activeRow = rows[nextIndex]
+    }
+
+    private func expandFocusedContext() -> Bool {
+        guard !isSearching,
+              case .context(let id) = activeRow,
+              let node = allContexts.first(where: { $0.id == id }),
+              !(node.children ?? []).isEmpty,
+              !expandedNodes.contains(id) else {
+            return false
+        }
+
+        withAnimation(.easeInOut(duration: 0.15)) {
+            _ = expandedNodes.insert(id)
+        }
+        return true
+    }
+
+    private func collapseOrMoveToParent() -> Bool {
+        guard case .context(let id) = activeRow,
+              let node = allContexts.first(where: { $0.id == id }) else {
+            return false
+        }
+
+        let hasChildren = !(node.children ?? []).isEmpty
+        if !isSearching, hasChildren, expandedNodes.contains(id) {
+            withAnimation(.easeInOut(duration: 0.15)) {
+                _ = expandedNodes.remove(id)
+            }
+            return true
+        }
+
+        guard let parent = node.parent else { return false }
+
+        if !isSearching {
+            expandedNodes.remove(parent.id)
+        }
+        activeRow = .context(parent.id)
+        return true
+    }
+
+    private func selectRow(_ row: ActivePickerRow) {
+        switch row {
+        case .noneContext:
+            selectedContext = nil
+            dismiss()
+        case .context(let id):
+            guard let node = allContexts.first(where: { $0.id == id }) else { return }
+            selectedContext = node
+            dismiss()
         }
     }
 }

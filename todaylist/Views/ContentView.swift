@@ -9,7 +9,7 @@ import SwiftUI
 import SwiftData
 
 struct ContentView: View {
-    private enum TodayTaskFilterMode {
+    private enum TodayTaskFilterMode: Hashable {
         case all
         case incomplete
     }
@@ -307,37 +307,46 @@ struct ContentView: View {
     }
 
     private var todayTaskFilterControl: some View {
-        HStack(spacing: 2) {
-            todayTaskFilterButton(
+        HStack(spacing: 0) {
+            filterButton(
                 mode: .all,
                 icon: "line.3.horizontal",
-                helpText: "显示今天所有任务"
+                help: "显示所有任务"
             )
-            todayTaskFilterButton(
+            
+            Divider()
+                .frame(height: 12)
+                .background(Color.secondary.opacity(0.2))
+            
+            filterButton(
                 mode: .incomplete,
                 icon: Theme.Icons.taskIncomplete,
-                helpText: "仅显示今天未完成任务"
+                help: "仅显示未完成"
             )
         }
-        .padding(2)
-        .background(Color.secondary.opacity(0.12))
-        .clipShape(Capsule())
+        .padding(.horizontal, 4)
+        .padding(.vertical, 2)
+        .background(
+            Capsule()
+                .fill(Color.secondary.opacity(0.1))
+        )
     }
 
-    private func todayTaskFilterButton(mode: TodayTaskFilterMode, icon: String, helpText: String) -> some View {
+    private func filterButton(mode: TodayTaskFilterMode, icon: String, help: String) -> some View {
         let isSelected = todayTaskFilterMode == mode
         return Button {
-            todayTaskFilterMode = mode
+            withAnimation(.snappy(duration: 0.2)) {
+                todayTaskFilterMode = mode
+            }
         } label: {
             Image(systemName: icon)
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(isSelected ? Theme.Colors.todayAccent : .secondary)
-                .frame(width: 22, height: 22)
-                .background(isSelected ? Theme.Colors.todayAccent.opacity(0.16) : Color.clear)
-                .clipShape(Circle())
+                .font(.system(size: 13, weight: .regular))
+                .foregroundStyle(isSelected ? Theme.Colors.todayAccent : .secondary.opacity(0.8))
+                .frame(width: 24, height: 20)
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .help(helpText)
+        .help(help)
     }
 
     private func toggleCompletion(for item: Item) {
