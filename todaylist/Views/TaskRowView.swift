@@ -11,6 +11,7 @@ struct TaskRowView: View {
     let isToday: Bool
     let showContextTag: Bool
     var onStartTask: (() -> Void)? = nil
+    var onToggleTodayPriority: (() -> Void)? = nil
 
     // State for hover effect on action button
     @State private var isActionHovering = false
@@ -35,6 +36,22 @@ struct TaskRowView: View {
     // Whether the task is paused (has been tracked but not currently in progress and not completed)
     private var isPaused: Bool {
         item.hasBeenTracked && !item.isInProgress && !item.isCompleted
+    }
+
+    private var isPrioritizedForToday: Bool {
+        guard isToday,
+              let priorityDate = item.todayPriorityDate,
+              let assignedDate = item.assignedDate else {
+            return false
+        }
+        return Calendar.current.isDate(priorityDate, inSameDayAs: assignedDate)
+    }
+
+    private var titleColor: Color {
+        if isPrioritizedForToday {
+            return Theme.Colors.todayPriorityTitle
+        }
+        return item.isCompleted ? Theme.Colors.completedText : Theme.Colors.primaryText
     }
 
     var body: some View {
@@ -77,7 +94,7 @@ struct TaskRowView: View {
             HStack(alignment: .top, spacing: 0) {
                 VStack(alignment: .leading, spacing: Theme.Spacing.taskRowInternal) {
                     Text(item.title)
-                        .foregroundStyle(item.isCompleted ? Theme.Colors.completedText : Theme.Colors.primaryText)
+                        .foregroundStyle(titleColor)
                         .strikethrough(item.isCompleted)
                         .lineLimit(nil)
                         .fixedSize(horizontal: false, vertical: true)
@@ -165,6 +182,15 @@ struct TaskRowView: View {
         .contextMenu {
             Button(action: onEdit) {
                 Label("Edit", systemImage: Theme.Icons.edit)
+            }
+
+            if isToday, let onToggleTodayPriority {
+                Button(action: onToggleTodayPriority) {
+                    Label(
+                        isPrioritizedForToday ? "取消优先" : "优先",
+                        systemImage: isPrioritizedForToday ? Theme.Icons.priorityOff : Theme.Icons.priority
+                    )
+                }
             }
 
             if isToday && !item.isCompleted, let onStartTask {

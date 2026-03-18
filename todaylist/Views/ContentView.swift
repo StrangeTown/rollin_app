@@ -53,10 +53,17 @@ struct ContentView: View {
     // App Storage for retention policy
     @AppStorage("retentionDays") private var retentionDays: Int = 365
 
-    // Date formatter for section headers (e.g. "11.20")
+    // Date formatter for section headers in current year (e.g. "11.20")
     private static let sectionDateFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateFormat = "MM.dd"
+        return formatter
+    }()
+
+    // Date formatter for section headers outside current year (e.g. "2025.11.20")
+    private static let sectionDateWithYearFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy.MM.dd"
         return formatter
     }()
     
@@ -152,7 +159,8 @@ struct ContentView: View {
                                         isScheduled: true,
                                         isToday: isTodaySection,
                                         showContextTag: false,
-                                        onStartTask: isTodaySection ? { startTask(item) } : nil
+                                        onStartTask: isTodaySection ? { startTask(item) } : nil,
+                                        onToggleTodayPriority: isTodaySection ? { toggleTodayPriority(for: item) } : nil
                                     )
                                     .listRowSeparator(.hidden)
                                     .listRowInsets(EdgeInsets(top: Theme.Spacing.listItemVertical, leading: 0, bottom: Theme.Spacing.listItemVertical, trailing: 0))
@@ -261,7 +269,10 @@ struct ContentView: View {
     // Formats the date header with relative terms (Today, Yesterday, Tomorrow)
     private func formatSectionHeader(_ date: Date, relativeTo referenceDate: Date) -> (dateString: String, label: String, isToday: Bool) {
         let calendar = Calendar.current
-        let dateString = Self.sectionDateFormatter.string(from: date)
+        let isCurrentYear = calendar.isDate(date, equalTo: referenceDate, toGranularity: .year)
+        let dateString = isCurrentYear
+            ? Self.sectionDateFormatter.string(from: date)
+            : Self.sectionDateWithYearFormatter.string(from: date)
         
         if calendar.isDate(date, inSameDayAs: referenceDate) {
             return (dateString, "Today", true)
@@ -371,6 +382,7 @@ struct ContentView: View {
         withAnimation {
             // Assign current date to move from Inbox to Today
             item.assignedDate = Date()
+            item.todayPriorityDate = nil
         }
     }
 
@@ -379,6 +391,7 @@ struct ContentView: View {
             let now = Date()
             for item in items {
                 item.assignedDate = now
+                item.todayPriorityDate = nil
             }
         }
     }
@@ -387,9 +400,26 @@ struct ContentView: View {
         withAnimation {
             // Remove assigned date to move back to Inbox
             item.assignedDate = nil
+            item.todayPriorityDate = nil
             // Clear timer state
             item.startedAt = nil
             item.accumulatedDuration = 0
+        }
+    }
+
+    private func toggleTodayPriority(for item: Item) {
+        withAnimation {
+            guard let assignedDate = item.assignedDate,
+                  Calendar.current.isDate(assignedDate, inSameDayAs: currentDate) else {
+                return
+            }
+
+            if let priorityDate = item.todayPriorityDate,
+               Calendar.current.isDate(priorityDate, inSameDayAs: assignedDate) {
+                item.todayPriorityDate = nil
+            } else {
+                item.todayPriorityDate = Calendar.current.startOfDay(for: assignedDate)
+            }
         }
     }
 
@@ -457,6 +487,7 @@ struct ContentView: View {
         withAnimation {
             for item in overdueItems {
                 item.assignedDate = nil
+                item.todayPriorityDate = nil
                 // Clear timer state for overdue tasks
                 item.startedAt = nil
                 item.accumulatedDuration = 0
