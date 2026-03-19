@@ -18,13 +18,23 @@ struct CommandPaletteView: View {
     @State private var selectedCommandID: String?
     @State private var keyMonitor: Any?
     @FocusState private var isSearchFocused: Bool
+    @AppStorage("LastUsedCommandID") private var lastUsedCommandID: String = ""
 
     private var filteredCommands: [CommandPaletteCommand] {
         let trimmed = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return commands }
+        
+        // Prioritize last used command
+        var activeCommands = commands
+        if !lastUsedCommandID.isEmpty,
+           let index = activeCommands.firstIndex(where: { $0.id == lastUsedCommandID }) {
+            let element = activeCommands.remove(at: index)
+            activeCommands.insert(element, at: 0)
+        }
+        
+        guard !trimmed.isEmpty else { return activeCommands }
 
         let tokens = trimmed.lowercased().split(whereSeparator: \.isWhitespace)
-        return commands.filter { command in
+        return activeCommands.filter { command in
             let haystack = ([command.title, command.subtitle, command.shortcut] + command.keywords)
                 .joined(separator: " ")
                 .lowercased()
@@ -75,6 +85,7 @@ struct CommandPaletteView: View {
                                 CommandRow(
                                     command: command,
                                     isSelected: selectedCommandID == command.id,
+                                    isLastUsed: command.id == lastUsedCommandID,
                                     action: { execute(command) }
                                 )
                                 .id(command.id)
@@ -171,6 +182,10 @@ struct CommandPaletteView: View {
 
     private func execute(_ command: CommandPaletteCommand?) {
         guard let command else { return }
+        
+        // Save last used command
+        UserDefaults.standard.set(command.id, forKey: "LastUsedCommandID")
+        
         onClose()
         DispatchQueue.main.async {
             command.action()
@@ -181,6 +196,7 @@ struct CommandPaletteView: View {
 struct CommandRow: View {
     let command: CommandPaletteCommand
     let isSelected: Bool
+    let isLastUsed: Bool
     let action: () -> Void
     
     var body: some View {
@@ -203,6 +219,17 @@ struct CommandRow: View {
                 }
                 
                 Spacer(minLength: 8)
+                
+                if isLastUsed {
+                    Text("最近使用")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.secondary.opacity(0.1))
+                        .clipShape(RoundedRectangle(cornerRadius: 4))
+                        .padding(.trailing, 4)
+                }
                 
                 if !command.shortcut.isEmpty {
                     Text(command.shortcut)
