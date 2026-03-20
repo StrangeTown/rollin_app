@@ -48,6 +48,7 @@ struct ContentView: View {
     @State private var showWeeklyMatrix = false
     @State private var todayTaskFilterMode: TodayTaskFilterMode = .all
     @State private var todayContextFilter: ContextNode?
+    @State private var todayPriorityOnlyFilter = false
     @State private var showTodayContextFilterPicker = false
     @State private var showCommandPalette = false
     
@@ -416,10 +417,21 @@ struct ContentView: View {
             filtered = filtered.filter { itemMatchesTodayContextFilter($0, selectedContext: contextFilter) }
         }
 
+        if todayPriorityOnlyFilter {
+            filtered = filtered.filter { isPrioritizedForToday($0) }
+        }
+
         return filtered
     }
 
     private var todaySectionEmptyMessage: String {
+        let hasAdditionalFilter = todayContextFilter != nil || todayPriorityOnlyFilter
+        if todayTaskFilterMode == .incomplete && hasAdditionalFilter {
+            return "今天没有符合筛选条件的未完成任务"
+        }
+        if hasAdditionalFilter {
+            return "今天没有符合筛选条件的任务"
+        }
         if let context = todayContextFilter {
             return "“\(context.name)”下今天没有任务"
         }
@@ -452,6 +464,12 @@ struct ContentView: View {
                 .background(Color.secondary.opacity(0.12))
 
             todayContextFilterMenu
+
+            Divider()
+                .frame(height: 12)
+                .background(Color.secondary.opacity(0.12))
+
+            todayPriorityFilterButton
         }
         .padding(.horizontal, 4)
         .padding(.vertical, 2)
@@ -499,13 +517,30 @@ struct ContentView: View {
         }
     }
 
+    private var todayPriorityFilterButton: some View {
+        Button {
+            withAnimation(.snappy(duration: 0.2)) {
+                todayPriorityOnlyFilter.toggle()
+            }
+        } label: {
+            Text("优先")
+                .font(.system(size: 10, weight: .regular))
+                .foregroundStyle(todayPriorityOnlyFilter ? Theme.Colors.todayAccent : .secondary.opacity(0.72))
+                .padding(.horizontal, 8)
+                .frame(height: 20)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help("仅显示今天优先任务")
+    }
+
     private var todayContextFilterPickerView: some View {
         VStack(alignment: .leading, spacing: 6) {
             Button {
                 todayContextFilter = nil
                 showTodayContextFilterPicker = false
             } label: {
-                contextFilterOptionLabel(
+                ContextFilterOptionView(
                     title: "不按上下文过滤",
                     isSelected: todayContextFilter == nil
                 )
@@ -524,7 +559,7 @@ struct ContentView: View {
                             todayContextFilter = context
                             showTodayContextFilterPicker = false
                         } label: {
-                            contextFilterOptionLabel(
+                            ContextFilterOptionView(
                                 title: context.fullPath,
                                 isSelected: todayContextFilter?.id == context.id
                             )
@@ -541,29 +576,6 @@ struct ContentView: View {
         }
         .padding(10)
         .frame(minWidth: 260, idealWidth: 300, maxWidth: 320, minHeight: 120, maxHeight: 280)
-    }
-
-    private func contextFilterOptionLabel(title: String, isSelected: Bool) -> some View {
-        HStack(spacing: 8) {
-            Text(title)
-                .lineLimit(1)
-                .truncationMode(.tail)
-                .font(.system(size: 12, weight: .regular))
-
-            Spacer(minLength: 0)
-
-            if isSelected {
-                Image(systemName: "checkmark")
-                    .font(.system(size: 11, weight: .semibold))
-            }
-        }
-        .foregroundStyle(isSelected ? Theme.Colors.todayAccent : .primary)
-        .padding(.horizontal, 8)
-        .padding(.vertical, 6)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .contentShape(Rectangle())
-        .background(isSelected ? Theme.Colors.todayAccent.opacity(0.1) : Color.clear)
-        .clipShape(RoundedRectangle(cornerRadius: 6))
     }
 
     private var todayContextOptions: [ContextNode] {
@@ -594,6 +606,14 @@ struct ContentView: View {
             current = node.parent
         }
         return false
+    }
+
+    private func isPrioritizedForToday(_ item: Item) -> Bool {
+        guard let assignedDate = item.assignedDate,
+              let priorityDate = item.todayPriorityDate else {
+            return false
+        }
+        return Calendar.current.isDate(priorityDate, inSameDayAs: assignedDate)
     }
 
     private func toggleCompletion(for item: Item) {
@@ -1092,6 +1112,40 @@ struct ContextDetailView: View {
         withAnimation {
             modelContext.delete(item)
         }
+    }
+}
+
+struct ContextFilterOptionView: View {
+    let title: String
+    let isSelected: Bool
+    
+    @State private var isHovering = false
+    
+    var body: some View {
+        HStack(spacing: 8) {
+            Text(title)
+                .lineLimit(1)
+                .truncationMode(.tail)
+                .font(.system(size: 12, weight: .regular))
+
+            Spacer(minLength: 0)
+
+            if isSelected {
+                Image(systemName: "checkmark")
+                    .font(.system(size: 11, weight: .semibold))
+            }
+        }
+        .foregroundStyle(isSelected ? Theme.Colors.todayAccent : .primary)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 6)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .contentShape(Rectangle())
+        .background(
+            isSelected ? Theme.Colors.todayAccent.opacity(0.1) :
+            (isHovering ? Color.secondary.opacity(0.1) : Color.clear)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 6))
+        .onHover { isHovering = $0 }
     }
 }
 
