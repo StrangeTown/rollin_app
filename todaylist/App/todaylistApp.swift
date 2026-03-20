@@ -42,7 +42,7 @@ struct todaylistApp: App {
                 .modelContainer(sharedModelContainer)
         }
 
-        MenuBarExtra("TodayList", systemImage: "checklist") {
+        MenuBarExtra("Follin", systemImage: "checklist") {
             Button("Settings") {
                 NSApplication.shared.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
             }
