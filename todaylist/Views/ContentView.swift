@@ -85,10 +85,18 @@ struct ContentView: View {
         let sortedDates = grouped.keys.sorted(by: >)
         
         NavigationSplitView(columnVisibility: $columnVisibility) {
-            // MARK: - Sidebar (Inbox)
-            List {
-                inboxSection
-                contextSection
+            // MARK: - Sidebar (Inbox + Contexts)
+            VStack(spacing: 0) {
+                List {
+                    inboxSection
+                }
+                .frame(maxHeight: 500)
+                
+                Divider()
+                
+                List {
+                    contextSection
+                }
             }
             .navigationSplitViewColumnWidth(min: 300, ideal: 360)
             .toolbar {
