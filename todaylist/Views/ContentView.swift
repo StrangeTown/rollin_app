@@ -813,6 +813,8 @@ struct ContentView: View {
                     isToday: false,
                     showContextTag: true
                 )
+                .listRowSeparator(.hidden)
+                .listRowInsets(EdgeInsets(top: Theme.Spacing.listItemVertical, leading: 0, bottom: Theme.Spacing.listItemVertical, trailing: 0))
             }
             .onDelete(perform: deleteInboxItems)
         }
@@ -1054,42 +1056,86 @@ struct ContextTreeRow: View {
 
 struct ContextDetailView: View {
     let context: ContextNode
-    @Query var items: [Item]
     @Environment(\.modelContext) private var modelContext
     @Binding var taskToEdit: Item?
-    
-    init(context: ContextNode, taskToEdit: Binding<Item?>) {
-        self.context = context
-        _taskToEdit = taskToEdit
-        let targetId = context.id
-        // Filter items by context ID
-        _items = Query(filter: #Predicate<Item> { item in
-            item.context?.id == targetId
-        }, sort: \Item.timestamp, order: .reverse)
+
+    private enum FilterMode { case all, incomplete }
+    @State private var filterMode: FilterMode = .all
+
+    /// Recursively collect all items from this context and its descendants.
+    private var allItems: [Item] {
+        func collect(_ node: ContextNode) -> [Item] {
+            var result = node.items ?? []
+            for child in (node.children ?? []).sorted(by: { $0.sortOrder < $1.sortOrder }) {
+                result += collect(child)
+            }
+            return result
+        }
+        let sorted = collect(context).sorted(by: { $0.timestamp > $1.timestamp })
+        return filterMode == .incomplete ? sorted.filter { !$0.isCompleted } : sorted
     }
-    
+
+    private var filterControl: some View {
+        HStack(spacing: 0) {
+            filterButton(mode: .all, title: "全部", help: "显示所有任务")
+            Divider()
+                .frame(height: 12)
+                .background(Color.secondary.opacity(0.12))
+            filterButton(mode: .incomplete, title: "未完成", help: "仅显示未完成")
+        }
+        .padding(.horizontal, 4)
+        .padding(.vertical, 2)
+        .background(Capsule().fill(Color.secondary.opacity(0.06)))
+    }
+
+    private func filterButton(mode: FilterMode, title: String, help: String) -> some View {
+        let isSelected = filterMode == mode
+        return Button {
+            withAnimation(.snappy(duration: 0.2)) { filterMode = mode }
+        } label: {
+            Text(title)
+                .font(.system(size: 10, weight: .regular))
+                .foregroundStyle(isSelected ? Theme.Colors.todayAccent : .secondary.opacity(0.72))
+                .padding(.horizontal, 8)
+                .frame(height: 20)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help(help)
+    }
+
     var body: some View {
         List {
-            if items.isEmpty {
-                ContentUnavailableView("No items in context", systemImage: "circle.dotted", description: Text("Add items to this context."))
-            } else {
-                ForEach(items) { item in
-                    TaskRowView(
-                        item: item,
-                        onToggleCompletion: { toggleCompletion(for: item) },
-                        onMove: { moveToToday(item) },
-                        onDelete: { deleteItem(item) },
-                        onEdit: {
-                            taskToEdit = item
-                        },
-                        isScheduled: item.assignedDate != nil,
-                        isToday: false,
-                        showContextTag: false
-                    )
+            Section(header:
+                HStack {
+                    filterControl
+                    Spacer()
+                }
+                .padding(.bottom, 4)
+            ) {
+                if allItems.isEmpty {
+                    ContentUnavailableView("No items in context", systemImage: "circle.dotted", description: Text("Add items to this context."))
+                } else {
+                    ForEach(allItems) { item in
+                        TaskRowView(
+                            item: item,
+                            onToggleCompletion: { toggleCompletion(for: item) },
+                            onMove: { moveToToday(item) },
+                            onDelete: { deleteItem(item) },
+                            onEdit: {
+                                taskToEdit = item
+                            },
+                            isScheduled: item.assignedDate != nil,
+                            isToday: false,
+                            showContextTag: true
+                        )
+                        .listRowSeparator(.hidden)
+                        .listRowInsets(EdgeInsets(top: Theme.Spacing.listItemVertical, leading: 0, bottom: Theme.Spacing.listItemVertical, trailing: 0))
+                    }
                 }
             }
         }
-        .navigationTitle(context.name)
+        .navigationTitle(context.fullPath.replacingOccurrences(of: " / ", with: " › "))
     }
     
     private func toggleCompletion(for item: Item) {

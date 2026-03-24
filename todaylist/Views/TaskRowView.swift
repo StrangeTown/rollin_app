@@ -17,6 +17,7 @@ struct TaskRowView: View {
     @State private var isActionHovering = false
     @State private var isTimerHovering = false
     @State private var isCheckboxHovering = false
+    @State private var isRowHovering = false
 
     // State for completion animation
     @State private var completionScale: CGFloat = 1.0
@@ -171,14 +172,21 @@ struct TaskRowView: View {
                 .help(isScheduled ? "Remove from Today" : "Move to Today")
             }
         }
-        .padding(.vertical, item.isInProgress ? 2 : 0)
-        .padding(.horizontal, item.isInProgress ? 4 : 0)
+        .padding(.vertical, 4)
+        .padding(.horizontal, 6)
         .background(
-            item.isInProgress
-                ? RoundedRectangle(cornerRadius: Theme.CornerRadius.medium)
-                    .fill(Theme.Colors.todayAccent.opacity(0.06))
-                : nil
+            RoundedRectangle(cornerRadius: Theme.CornerRadius.medium)
+                .fill(
+                    item.isInProgress
+                        ? Theme.Colors.todayAccent.opacity(0.06)
+                        : (isRowHovering ? Theme.Colors.hoverBackground : Color.clear)
+                )
         )
+        .onHover { hovering in
+            withAnimation(Theme.Animation.standard) {
+                isRowHovering = hovering
+            }
+        }
         .contextMenu {
             Button(action: onEdit) {
                 Label("Edit", systemImage: Theme.Icons.edit)
