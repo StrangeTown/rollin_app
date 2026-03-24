@@ -68,15 +68,31 @@ struct ReviewView: View {
         )
     }
     
-    // Masonry columns
-    private let columns = [
-        GridItem(.flexible(), spacing: 16),
-        GridItem(.flexible(), spacing: 16)
-    ]
+    // Masonry columns: Split data into two columns for true waterfall layout
+    private func makeColumns(data: ComputedReviewData) -> (left: [RootContextData], right: [RootContextData]) {
+        var left: [RootContextData] = []
+        var right: [RootContextData] = []
+        
+        // If we have inbox items, they take the top-left slot.
+        // To balance, we start distributing contexts to the RIGHT column first.
+        var addToLeft = data.inboxItems.isEmpty
+        
+        for context in data.rootContextData {
+            if addToLeft {
+                left.append(context)
+            } else {
+                right.append(context)
+            }
+            addToLeft.toggle()
+        }
+        
+        return (left, right)
+    }
     
     var body: some View {
         // Capture computed data once per render
         let data = computedData
+        let columns = makeColumns(data: data)
         
         VStack(spacing: 0) {
             // Header bar
@@ -84,25 +100,38 @@ struct ReviewView: View {
             
             Divider()
             
-            // Bento Grid
+            // Bento Grid (Masonry Layout)
             if !data.hasAnyContent {
                 Spacer()
                 emptyState
                 Spacer()
             } else {
                 ScrollView {
-                    LazyVGrid(columns: columns, spacing: 16) {
-                        // Inbox card (tasks without context)
-                        if !data.inboxItems.isEmpty {
-                            InboxCard(items: data.inboxItems)
-                        }
-                        
-                        // Context cards
-                        ForEach(data.rootContextData) { contextData in
-                            RootContextCard(data: contextData) { copiedData in
-                                copyContextReport(copiedData)
+                    HStack(alignment: .top, spacing: 16) {
+                        // Left Column
+                        VStack(spacing: 16) {
+                            // Inbox card always on top left if present
+                            if !data.inboxItems.isEmpty {
+                                InboxCard(items: data.inboxItems)
+                            }
+                            
+                            ForEach(columns.left) { contextData in
+                                RootContextCard(data: contextData) { copiedData in
+                                    copyContextReport(copiedData)
+                                }
                             }
                         }
+                        .frame(maxWidth: .infinity)
+                        
+                        // Right Column
+                        VStack(spacing: 16) {
+                            ForEach(columns.right) { contextData in
+                                RootContextCard(data: contextData) { copiedData in
+                                    copyContextReport(copiedData)
+                                }
+                            }
+                        }
+                        .frame(maxWidth: .infinity)
                     }
                     .padding(20)
                 }
