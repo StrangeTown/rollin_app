@@ -114,26 +114,24 @@ struct InboxBatchAddToTodayView: View {
     }
 
     private var contextFilterBar: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                contextChip(
-                    title: "全选",
-                    selectionState: allSelectionState
-                ) {
-                    toggleSelectAll()
-                }
+        FlowLayout(spacing: 8) {
+            contextChip(
+                title: "全选",
+                selectionState: allSelectionState
+            ) {
+                toggleSelectAll()
+            }
 
-                ForEach(availableContexts, id: \.id) { context in
-                    contextChip(
-                        title: context.fullPath,
-                        selectionState: contextSelectionState(for: context.id)
-                    ) {
-                        toggleContextSelection(contextID: context.id)
-                    }
+            ForEach(availableContexts, id: \.id) { context in
+                contextChip(
+                    title: context.fullPath,
+                    selectionState: contextSelectionState(for: context.id)
+                ) {
+                    toggleContextSelection(contextID: context.id)
                 }
             }
-            .padding(.horizontal, 2)
         }
+        .padding(.horizontal, 2)
     }
 
     private var allSelectionState: ChipSelectionState {
@@ -222,3 +220,4 @@ struct InboxBatchAddToTodayView: View {
         dismiss()
     }
 }
+
