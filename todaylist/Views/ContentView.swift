@@ -1113,9 +1113,7 @@ struct ContextDetailView: View {
                 }
                 .padding(.bottom, 4)
             ) {
-                if allItems.isEmpty {
-                    ContentUnavailableView("No items in context", systemImage: "circle.dotted", description: Text("Add items to this context."))
-                } else {
+                if !allItems.isEmpty {
                     ForEach(allItems) { item in
                         TaskRowView(
                             item: item,
@@ -1133,6 +1131,11 @@ struct ContextDetailView: View {
                         .listRowInsets(EdgeInsets(top: Theme.Spacing.listItemVertical, leading: 0, bottom: Theme.Spacing.listItemVertical, trailing: 0))
                     }
                 }
+            }
+        }
+        .overlay {
+            if allItems.isEmpty {
+                ContentUnavailableView("No items in context", systemImage: "circle.dotted", description: Text("Add items to this context."))
             }
         }
         .navigationTitle(context.fullPath.replacingOccurrences(of: " / ", with: " › "))
