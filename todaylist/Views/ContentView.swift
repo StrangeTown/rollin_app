@@ -109,7 +109,7 @@ struct ContentView: View {
             }
         } detail: {
             if let context = selectedContext {
-                ContextDetailView(context: context, taskToEdit: $taskToEdit)
+                ContextDetailView(context: context, taskToEdit: $taskToEdit, selectedContext: $selectedContext)
             } else {
                 // MARK: - Detail View (Scheduled Tasks)
                 List {
@@ -1058,6 +1058,7 @@ struct ContextDetailView: View {
     let context: ContextNode
     @Environment(\.modelContext) private var modelContext
     @Binding var taskToEdit: Item?
+    @Binding var selectedContext: ContextNode?
 
     private enum FilterMode { case all, incomplete }
     @State private var filterMode: FilterMode = .all
@@ -1110,6 +1111,22 @@ struct ContextDetailView: View {
                 HStack {
                     filterControl
                     Spacer()
+                    Button {
+                        selectedContext = nil
+                    } label: {
+                        HStack(spacing: 3) {
+                            Image(systemName: "calendar")
+                                .font(.system(size: 10))
+                            Text("今天")
+                                .font(.system(size: 10, weight: .regular))
+                        }
+                        .foregroundStyle(Theme.Colors.todayAccent)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 2)
+                        .background(Capsule().fill(Theme.Colors.todayAccent.opacity(0.08)))
+                    }
+                    .buttonStyle(.plain)
+                    .help("切换到今天视图")
                 }
                 .padding(.bottom, 4)
             ) {
