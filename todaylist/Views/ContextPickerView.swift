@@ -179,33 +179,43 @@ struct ContextPickerView: View {
             .padding(.horizontal, 10)
             .padding(.top, 10)
 
-            List {
-                Section {
-                    noContextRow
-                        .listRowSeparator(.hidden)
-                        .listRowInsets(EdgeInsets(top: 6, leading: 10, bottom: 6, trailing: 10))
-                }
-
-                Section {
-                    if displayedContexts.isEmpty {
-                        emptyResultRow
+            ScrollViewReader { proxy in
+                List {
+                    Section {
+                        noContextRow
+                            .id(scrollID(for: .noneContext))
                             .listRowSeparator(.hidden)
-                            .listRowInsets(EdgeInsets(top: 8, leading: 10, bottom: 8, trailing: 10))
-                    } else {
-                        ForEach(displayedContexts) { item in
-                            contextRow(item)
-                                .listRowSeparator(.hidden)
-                                .listRowInsets(EdgeInsets(top: 2, leading: 8, bottom: 2, trailing: 8))
-                        }
+                            .listRowInsets(EdgeInsets(top: 6, leading: 10, bottom: 6, trailing: 10))
                     }
-                } header: {
-                    Text("上下文")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .textCase(nil)
+
+                    Section {
+                        if displayedContexts.isEmpty {
+                            emptyResultRow
+                                .listRowSeparator(.hidden)
+                                .listRowInsets(EdgeInsets(top: 8, leading: 10, bottom: 8, trailing: 10))
+                        } else {
+                            ForEach(displayedContexts) { item in
+                                contextRow(item)
+                                    .id(scrollID(for: .context(item.node.id)))
+                                    .listRowSeparator(.hidden)
+                                    .listRowInsets(EdgeInsets(top: 2, leading: 8, bottom: 2, trailing: 8))
+                            }
+                        }
+                    } header: {
+                        Text("上下文")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .textCase(nil)
+                    }
+                }
+                .listStyle(.plain)
+                .onChange(of: activeRow) { _, newRow in
+                    guard let newRow else { return }
+                    withAnimation(.easeInOut(duration: 0.15)) {
+                        proxy.scrollTo(scrollID(for: newRow), anchor: .center)
+                    }
                 }
             }
-            .listStyle(.plain)
         }
         .frame(minWidth: 260, minHeight: 320)
         .onAppear {
@@ -419,6 +429,13 @@ struct ContextPickerView: View {
         }
         activeRow = .context(parent.id)
         return true
+    }
+
+    private func scrollID(for row: ActivePickerRow) -> String {
+        switch row {
+        case .noneContext:       return "picker-row-none"
+        case .context(let id):  return "picker-row-\(id.uuidString)"
+        }
     }
 
     private func selectRow(_ row: ActivePickerRow) {
