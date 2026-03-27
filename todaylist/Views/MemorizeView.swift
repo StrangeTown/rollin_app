@@ -1,11 +1,6 @@
 import SwiftUI
 import SwiftData
 
-private let shuffleIcons = [
-    "dice", "dice.fill", "arrow.trianglehead.2.clockwise", "shuffle",
-    "sparkles", "wand.and.stars", "hurricane", "atom",
-    "arrow.trianglehead.clockwise", "figure.walk", "hare.fill", "bolt.fill"
-]
 
 struct MemorizeView: View {
     @Environment(\.modelContext) private var modelContext
@@ -15,20 +10,21 @@ struct MemorizeView: View {
     @State private var editingItem: MemorizeItem?
     @State private var editingContent: String = ""
     @State private var randomItem: MemorizeItem?
-    @State private var currentIcon: String = shuffleIcons.randomElement()!
     @FocusState private var isInputFocused: Bool
 
     var body: some View {
         HSplitView {
             // MARK: - Left panel
             leftPanel
-                .frame(minWidth: 350, idealWidth: 420)
+                .frame(minWidth: 450, idealWidth: 500)
+                .background(Color(NSColor.textBackgroundColor))
 
             // MARK: - Right panel
             rightPanel
-                .frame(minWidth: 280, idealWidth: 320)
+                .frame(minWidth: 400, idealWidth: 500)
+                .background(Color(NSColor.controlBackgroundColor))
         }
-        .frame(minWidth: 700, minHeight: 480)
+        .frame(minWidth: 900, minHeight: 600)
         .onAppear {
             isInputFocused = true
             pickRandom()
@@ -48,197 +44,242 @@ struct MemorizeView: View {
 
     private var leftPanel: some View {
         VStack(spacing: 0) {
-            // Header
-            HStack {
-                Image(systemName: "brain.head.profile")
-                    .font(.title2)
-                    .foregroundStyle(.purple)
-                Text("Memorize")
-                    .font(.title2.bold())
-                Spacer()
-                Text("\(items.count) 条要点")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            .padding()
-
-            Divider()
-
-            // Input area
-            HStack(alignment: .bottom, spacing: 8) {
-                ZStack(alignment: .topLeading) {
-                    if newContent.isEmpty {
-                        Text("添加新的要点… (⌘↩ 提交)")
-                            .foregroundStyle(.secondary.opacity(0.6))
-                            .font(.body)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 10)
-                            .allowsHitTesting(false)
-                    }
-                    TextEditor(text: $newContent)
-                        .font(.body)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 6)
-                        .frame(minHeight: 60, maxHeight: 120)
-                        .focused($isInputFocused)
-                        .scrollContentBackground(.hidden)
-                        .background(Color(NSColor.textBackgroundColor))
-                        .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.secondary.opacity(0.3), lineWidth: 1))
-                        .onKeyPress(.return, phases: .down) { press in
-                            guard press.modifiers.contains(.command) else { return .ignored }
-                            addItem()
-                            return .handled
-                        }
-                }
-
-                Button(action: addItem) {
-                    Image(systemName: "plus.circle.fill")
-                        .font(.title3)
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(.purple)
-                .disabled(newContent.trimmingCharacters(in: .whitespaces).isEmpty)
-            }
-            .padding()
-
-            Divider()
-
             // List
             if items.isEmpty {
                 Spacer()
-                VStack(spacing: 12) {
+                VStack(spacing: 16) {
                     Image(systemName: "brain")
-                        .font(.system(size: 40))
-                        .foregroundStyle(.quaternary)
+                        .font(.system(size: 48, weight: .light))
+                        .foregroundStyle(.tertiary)
                     Text("还没有要点")
                         .font(.headline)
                         .foregroundStyle(.secondary)
-                    Text("添加工作中需要记住的要点")
+                    Text("添加工作中需要记住的核心要点，\n帮助自己在实践中快速回忆。")
                         .font(.subheadline)
                         .foregroundStyle(.tertiary)
+                        .multilineTextAlignment(.center)
+                        .lineSpacing(6)
                 }
+                .padding(.horizontal, 40)
                 Spacer()
             } else {
-                List {
-                    ForEach(items) { item in
-                        if editingItem?.id == item.id {
-                            HStack(alignment: .bottom) {
-                                TextEditor(text: $editingContent)
-                                    .font(.body)
-                                    .padding(.horizontal, 6)
-                                    .padding(.vertical, 6)
-                                    .frame(minHeight: 60, maxHeight: 120)
-                                    .scrollContentBackground(.hidden)
-                                    .background(Color(NSColor.textBackgroundColor))
-                                    .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.secondary.opacity(0.3), lineWidth: 1))
-                                    .onKeyPress(.return, phases: .down) { press in
-                                        guard press.modifiers.contains(.command) else { return .ignored }
-                                        saveEdit(item)
-                                        return .handled
-                                    }
-                                VStack(spacing: 6) {
-                                    Button("保存") { saveEdit(item) }
-                                        .buttonStyle(.borderedProminent)
-                                        .tint(.purple)
-                                        .controlSize(.small)
-                                    Button("取消") {
-                                        editingItem = nil
-                                        editingContent = ""
-                                    }
-                                    .controlSize(.small)
-                                }
-                            }
-                        } else {
-                            HStack {
-                                Image(systemName: "lightbulb.fill")
-                                    .foregroundStyle(.yellow.opacity(0.8))
-                                    .font(.caption)
-
-                                Text(item.content)
-                                    .lineLimit(3)
-
-                                Spacer()
-
-                                Text(item.createdAt, style: .date)
-                                    .font(.caption2)
-                                    .foregroundStyle(.tertiary)
-
-                                Button {
-                                    editingItem = item
-                                    editingContent = item.content
-                                } label: {
-                                    Image(systemName: "pencil")
-                                }
-                                .buttonStyle(.plain)
-                                .foregroundStyle(.secondary)
-
-                                Button(role: .destructive) {
-                                    deleteItem(item)
-                                } label: {
-                                    Image(systemName: "trash")
-                                }
-                                .buttonStyle(.plain)
-                                .foregroundStyle(.secondary)
-                            }
-                            .padding(.vertical, 4)
+                ScrollView {
+                    LazyVStack(spacing: 16) {
+                        ForEach(items) { item in
+                            itemRow(item)
                         }
                     }
+                    .padding(24)
+                }
+            }
+
+            Divider()
+
+            // Input area (Bottom)
+            VStack(spacing: 0) {
+                HStack(alignment: .bottom, spacing: 12) {
+                    ZStack(alignment: .topLeading) {
+                        if newContent.isEmpty {
+                            Text("输入新的工作要点…")
+                                .foregroundStyle(.tertiary)
+                                .font(.body)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 10)
+                                .allowsHitTesting(false)
+                        }
+                        TextEditor(text: $newContent)
+                            .font(.body)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 6)
+                            .frame(minHeight: 40, maxHeight: 120)
+                            .focused($isInputFocused)
+                            .scrollContentBackground(.hidden)
+                            .background(Color(NSColor.controlBackgroundColor))
+                            .clipShape(RoundedRectangle(cornerRadius: 10))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 10)
+                                    .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
+                            )
+                            .onKeyPress(.return, phases: .down) { press in
+                                guard press.modifiers.contains(.command) else { return .ignored }
+                                addItem()
+                                return .handled
+                            }
+                    }
+
+                    Button(action: addItem) {
+                        Image(systemName: "arrow.up.circle.fill")
+                            .font(.system(size: 28))
+                            .foregroundStyle(newContent.trimmingCharacters(in: .whitespaces).isEmpty ? Color.secondary.opacity(0.3) : .purple)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(newContent.trimmingCharacters(in: .whitespaces).isEmpty)
+                    .padding(.bottom, 6)
+                }
+                
+                HStack {
+                    Text("可以用 ⌘+↩ 快速提交")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                    Spacer()
+                }
+                .padding(.top, 8)
+                .padding(.horizontal, 4)
+            }
+            .padding(20)
+            .background(Color(NSColor.windowBackgroundColor))
+        }
+    }
+
+    private func itemRow(_ item: MemorizeItem) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            if editingItem?.id == item.id {
+                TextEditor(text: $editingContent)
+                    .font(.body)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 6)
+                    .frame(minHeight: 60, maxHeight: 160)
+                    .scrollContentBackground(.hidden)
+                    .background(Color(NSColor.controlBackgroundColor))
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(Color.purple.opacity(0.5), lineWidth: 1)
+                    )
+                    .onKeyPress(.return, phases: .down) { press in
+                        guard press.modifiers.contains(.command) else { return .ignored }
+                        saveEdit(item)
+                        return .handled
+                    }
+                
+                HStack {
+                    Spacer()
+                    Button("取消") {
+                        editingItem = nil
+                        editingContent = ""
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.secondary)
+                    .font(.callout)
+                    
+                    Button("保存 (⌘↩)") { saveEdit(item) }
+                        .buttonStyle(.borderedProminent)
+                        .tint(.purple)
+                        .controlSize(.small)
+                }
+            } else {
+                HStack(alignment: .top, spacing: 12) {
+
+                    Text(item.content)
+                        .font(.body)
+                        .lineSpacing(6)
+                        .foregroundStyle(.primary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+
+                HStack {
+                    Text(item.createdAt.formatted(date: .abbreviated, time: .shortened))
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+
+                    Spacer()
+
+                    HStack(spacing: 16) {
+                        Button {
+                            editingItem = item
+                            editingContent = item.content
+                        } label: {
+                            Image(systemName: "pencil")
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(.secondary)
+                        .help("编辑")
+
+                        Button(role: .destructive) {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                                deleteItem(item)
+                            }
+                        } label: {
+                            Image(systemName: "trash")
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(.secondary.opacity(0.8))
+                        .help("删除")
+                    }
+                    .opacity(0.6)
                 }
             }
         }
+        .padding(16)
+        .background(Color(NSColor.controlBackgroundColor))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(Color.secondary.opacity(0.15), lineWidth: 1)
+        )
     }
 
     // MARK: - Right Panel
 
     private var rightPanel: some View {
         VStack(spacing: 0) {
-            HStack {
-                Image(systemName: "graduationcap.fill")
-                    .foregroundStyle(.purple.opacity(0.7))
-                Text("背记")
-                    .font(.headline)
-                Spacer()
-                Text("→ 下一条")
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
-            }
-            .padding()
-
-            Divider()
 
             if let item = randomItem {
                 Spacer()
-                ScrollView {
-                    Text(item.content)
-                        .font(.title3)
-                        .multilineTextAlignment(.center)
-                        .lineSpacing(6)
-                        .padding(.horizontal, 24)
+                
+                VStack(alignment: .leading, spacing: 16) {
+                    ScrollView {
+                        Text(item.content)
+                            .font(.system(size: 18, weight: .regular, design: .serif))
+                            .multilineTextAlignment(.leading)
+                            .lineSpacing(10)
+                            .foregroundStyle(.primary.opacity(0.9))
+                            .padding(.horizontal, 24)
+                            .padding(.vertical, 24)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .frame(maxHeight: 500)
                 }
-                .frame(maxHeight: .infinity)
+                .padding(.vertical, 16)
+                .frame(maxWidth: .infinity)
+                .background(
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(Color(NSColor.textBackgroundColor))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(Color.secondary.opacity(0.15), lineWidth: 1)
+                )
+                .padding(.horizontal, 32)
+                .padding(.vertical, 24)
+                
                 Spacer()
             } else {
                 Spacer()
-                Text("暂无要点")
-                    .font(.headline)
-                    .foregroundStyle(.secondary)
+                VStack(spacing: 16) {
+                    Image(systemName: "sparkles.rectangle.stack")
+                        .font(.system(size: 48, weight: .light))
+                        .foregroundStyle(.tertiary)
+                    Text("暂无内容可供复习")
+                        .font(.headline)
+                        .foregroundStyle(.secondary)
+                }
                 Spacer()
             }
 
             Divider()
 
-            Button(action: pickRandom) {
-                Image(systemName: currentIcon)
-                    .font(.system(size: 28))
-                    .foregroundStyle(.purple)
-                    .frame(width: 48, height: 48)
-                    .contentShape(Rectangle())
+            HStack(spacing: 4) {
+                Text("按")
+                Image(systemName: "arrow.right.square.fill")
+                Text("随机下一条")
             }
-            .buttonStyle(.plain)
-            .padding(.vertical, 16)
-            .help("随机一条 (→)")
+            .font(.caption)
+            .foregroundStyle(.tertiary)
+            .padding(.vertical, 24)
         }
-        .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
     }
 
     private func addItem() {
@@ -274,6 +315,5 @@ struct MemorizeView: View {
             }
             randomItem = next
         }
-        currentIcon = shuffleIcons.randomElement()!
     }
 }

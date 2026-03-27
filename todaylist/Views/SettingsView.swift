@@ -27,7 +27,7 @@ struct SettingsView: View {
     
     var body: some View {
         NavigationSplitView {
-            List {
+            List(selection: $selectedCategory) {
                 ForEach(SettingsCategory.allCases) { category in
                     NavigationLink(value: category) {
                         Label(category.rawValue, systemImage: category.icon)
