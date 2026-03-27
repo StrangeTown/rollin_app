@@ -45,7 +45,26 @@ struct SettingsView: View {
                         .padding(.top, 4)
                 }
                 
-                // Section 2: Manual Action
+                // Section 2: Context Hierarchy
+                Section {
+                    HStack(spacing: 12) {
+                        Image(systemName: "folder.badge.questionmark")
+                            .font(.title2)
+                            .foregroundStyle(Theme.Colors.accent)
+                            .frame(width: 24)
+
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Context 层级")
+                                .font(.headline)
+                            Text("Context 最多支持 \(Theme.Limits.maxContextDepth) 层嵌套（根 / 子级 / 孙级），超出层级后将不显示添加入口。")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .padding(.vertical, 8)
+                }
+
+                // Section 3: Manual Action
                 Section {
                     HStack {
                         VStack(alignment: .leading, spacing: 2) {
@@ -84,7 +103,7 @@ struct SettingsView: View {
                 Text("Removed \(cleanedCount) old tasks.")
             }
         }
-        .frame(width: 450, height: 320)
+        .frame(width: 450, height: 420)
     }
 }
 

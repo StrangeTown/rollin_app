@@ -1016,13 +1016,15 @@ struct ContextTreeRow: View {
             } label: {
                 Label("Move to Front", systemImage: "arrow.up.to.line")
             }
-            Button {
-                contextParentForAdd = node
-                withAnimation(Theme.Animation.dialog) {
-                    showAddContextAlert = true
+            if depth < Theme.Limits.maxContextDepth - 1 {
+                Button {
+                    contextParentForAdd = node
+                    withAnimation(Theme.Animation.dialog) {
+                        showAddContextAlert = true
+                    }
+                } label: {
+                    Label("Add Child Context", systemImage: "folder.badge.plus")
                 }
-            } label: {
-                Label("Add Child Context", systemImage: "folder.badge.plus")
             }
             Button(role: .destructive) {
                 onDelete(node)

@@ -57,13 +57,15 @@ struct ContextEditorSheetView: View {
                     TextField("Context 名称", text: contextNameBinding(for: node))
                         .textFieldStyle(.roundedBorder)
 
-                    Button {
-                        addChildContext(to: node)
-                    } label: {
-                        Image(systemName: Theme.Icons.add)
+                    if level < Theme.Limits.maxContextDepth - 1 {
+                        Button {
+                            addChildContext(to: node)
+                        } label: {
+                            Image(systemName: Theme.Icons.add)
+                        }
+                        .buttonStyle(.borderless)
+                        .help("添加子级")
                     }
-                    .buttonStyle(.borderless)
-                    .help("添加子级")
 
                     if !isRoot {
                         Button(role: .destructive) {

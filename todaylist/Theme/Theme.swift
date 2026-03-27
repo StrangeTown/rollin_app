@@ -226,6 +226,13 @@ enum Theme {
         static let large: CGFloat = 8
         static let dialog: CGFloat = 16
     }
+
+    // MARK: - Limits
+    enum Limits {
+        /// Maximum number of context hierarchy levels (1-based).
+        /// e.g. 3 means: root → child → grandchild, no deeper.
+        static let maxContextDepth = 3
+    }
 }
 
 // MARK: - Color Extension for Light/Dark Mode
