@@ -1006,20 +1006,28 @@ struct ContextTreeRow: View {
         }
         .onHover { isHovering = $0 }
         .contextMenu {
-            Button("Edit Context") {
+            Button {
                 onEdit(node)
+            } label: {
+                Label("Edit Context", systemImage: "pencil")
             }
-            Button("Move to Front") {
+            Button {
                 onMoveToFront(node)
+            } label: {
+                Label("Move to Front", systemImage: "arrow.up.to.line")
             }
-            Button("Add Child Context") {
+            Button {
                 contextParentForAdd = node
                 withAnimation(Theme.Animation.dialog) {
                     showAddContextAlert = true
                 }
+            } label: {
+                Label("Add Child Context", systemImage: "folder.badge.plus")
             }
-            Button("Delete", role: .destructive) {
+            Button(role: .destructive) {
                 onDelete(node)
+            } label: {
+                Label("Delete", systemImage: "trash")
             }
         }
     }

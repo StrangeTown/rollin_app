@@ -169,7 +169,7 @@ struct DailyLogView: View {
 
     /// Maps time gap between two entries to a connector line height.
     /// Uses log-scale buckets: small gaps → short line, large gaps → tall line.
-    private static func connectorHeight(from entry: DailyLogEntry, to next: DailyLogEntry?) -> CGFloat {
+    private nonisolated static func connectorHeight(from entry: DailyLogEntry, to next: DailyLogEntry?) -> CGFloat {
         guard let next = next else { return 0 } // last item — no connector
         let minutes = next.timestamp.timeIntervalSince(entry.timestamp) / 60
         switch minutes {
