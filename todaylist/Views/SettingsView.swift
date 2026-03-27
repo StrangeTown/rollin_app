@@ -43,6 +43,7 @@ struct SettingsView: View {
                     Label("Memorize", systemImage: "brain.head.profile")
                         .padding(.vertical, 4)
                         .frame(maxWidth: .infinity, alignment: .leading)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
             }

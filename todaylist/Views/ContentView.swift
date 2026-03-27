@@ -17,6 +17,7 @@ struct ContentView: View {
     // MARK: - Environment & State
     @Environment(\.modelContext) private var modelContext
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.openWindow) private var openWindow
     
     // Tracks the current date to handle day changes (e.g. midnight)
     @State private var currentDate = Date()
@@ -362,6 +363,15 @@ struct ContentView: View {
                 keywords: ["settings", "设置", "preferences"]
             ) {
                 showSettings = true
+            },
+            CommandPaletteCommand(
+                id: "open-memorize",
+                title: "打开 Memorize",
+                subtitle: "查看和背记工作要点",
+                shortcut: "",
+                keywords: ["memorize", "背记", "要点", "flashcard"]
+            ) {
+                openWindow(id: "memorize")
             }
         ]
     }

@@ -10,6 +10,7 @@ struct MemorizeView: View {
     @State private var editingItem: MemorizeItem?
     @State private var editingContent: String = ""
     @State private var randomItem: MemorizeItem?
+    @State private var keyMonitor: Any?
     @FocusState private var isInputFocused: Bool
 
     var body: some View {
@@ -28,6 +29,20 @@ struct MemorizeView: View {
         .onAppear {
             isInputFocused = true
             pickRandom()
+            keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+                // Right arrow key (keyCode 124)
+                if event.keyCode == 124, !self.isInputFocused, self.editingItem == nil {
+                    self.pickRandom()
+                    return nil
+                }
+                return event
+            }
+        }
+        .onDisappear {
+            if let monitor = keyMonitor {
+                NSEvent.removeMonitor(monitor)
+                keyMonitor = nil
+            }
         }
         .onKeyPress(.escape) {
             if isInputFocused {
@@ -35,11 +50,6 @@ struct MemorizeView: View {
                 return .handled
             }
             return .ignored
-        }
-        .onKeyPress(.rightArrow) {
-            guard !isInputFocused, editingItem == nil else { return .ignored }
-            pickRandom()
-            return .handled
         }
         .onChange(of: items.count) {
             if randomItem == nil || !items.contains(where: { $0.id == randomItem?.id }) {
