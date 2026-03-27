@@ -6,12 +6,19 @@ struct AddTaskView: View {
     @Environment(\.modelContext) private var modelContext
     
     var assignedDate: Date? = nil
+    var initialContext: ContextNode? = nil
 
     @Query(sort: \ContextNode.sortOrder) private var allContexts: [ContextNode]
 
     @State private var title = ""
     @State private var selectedContext: ContextNode?
     @State private var showContextPicker = false
+
+    init(assignedDate: Date? = nil, initialContext: ContextNode? = nil) {
+        self.assignedDate = assignedDate
+        self.initialContext = initialContext
+        _selectedContext = State(initialValue: initialContext)
+    }
     @FocusState private var isFocused: Bool
 
     private var recentContexts: [ContextNode] {

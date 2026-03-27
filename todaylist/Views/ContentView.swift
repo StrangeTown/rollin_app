@@ -1070,9 +1070,13 @@ struct ContextDetailView: View {
 
     private enum FilterMode { case all, incomplete }
     @State private var filterMode: FilterMode = .all
+    @State private var showAddTask = false
+
+    private enum DeleteTarget { case incomplete, completed, all }
+    @State private var pendingDelete: DeleteTarget? = nil
 
     /// Recursively collect all items from this context and its descendants.
-    private var allItems: [Item] {
+    private var allItemsUnfiltered: [Item] {
         func collect(_ node: ContextNode) -> [Item] {
             var result = node.items ?? []
             for child in (node.children ?? []).sorted(by: { $0.sortOrder < $1.sortOrder }) {
@@ -1080,8 +1084,11 @@ struct ContextDetailView: View {
             }
             return result
         }
-        let sorted = collect(context).sorted(by: { $0.timestamp > $1.timestamp })
-        return filterMode == .incomplete ? sorted.filter { !$0.isCompleted } : sorted
+        return collect(context).sorted(by: { $0.timestamp > $1.timestamp })
+    }
+
+    private var allItems: [Item] {
+        filterMode == .incomplete ? allItemsUnfiltered.filter { !$0.isCompleted } : allItemsUnfiltered
     }
 
     private var filterControl: some View {
@@ -1119,22 +1126,6 @@ struct ContextDetailView: View {
                 HStack {
                     filterControl
                     Spacer()
-                    Button {
-                        selectedContext = nil
-                    } label: {
-                        HStack(spacing: 3) {
-                            Image(systemName: "calendar")
-                                .font(.system(size: 10))
-                            Text("今天")
-                                .font(.system(size: 10, weight: .regular))
-                        }
-                        .foregroundStyle(Theme.Colors.todayAccent)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 2)
-                        .background(Capsule().fill(Theme.Colors.todayAccent.opacity(0.08)))
-                    }
-                    .buttonStyle(.plain)
-                    .help("切换到今天视图")
                 }
                 .padding(.bottom, 4)
             ) {
@@ -1164,6 +1155,98 @@ struct ContextDetailView: View {
             }
         }
         .navigationTitle(context.fullPath.replacingOccurrences(of: " / ", with: " › "))
+        .sheet(isPresented: $showAddTask) {
+            AddTaskView(initialContext: context)
+        }
+        .toolbar {
+            ToolbarItemGroup(placement: .primaryAction) {
+                Button {
+                    showAddTask = true
+                } label: {
+                    Label("Add Task", systemImage: "plus")
+                }
+                .help("Add task to this context")
+
+                Button {
+                    selectedContext = nil
+                } label: {
+                    Label("切到今天", systemImage: "calendar")
+                }
+                .help("切换到今天视图")
+
+                Menu {
+                    Button(role: .destructive) {
+                        pendingDelete = .incomplete
+                    } label: {
+                        Label("删除未完成", systemImage: "circle")
+                    }
+                    Button(role: .destructive) {
+                        pendingDelete = .completed
+                    } label: {
+                        Label("删除已完成", systemImage: "checkmark.circle")
+                    }
+                    Divider()
+                    Button(role: .destructive) {
+                        pendingDelete = .all
+                    } label: {
+                        Label("删除全部", systemImage: "trash")
+                    }
+                } label: {
+                    Label("更多操作", systemImage: "ellipsis.circle")
+                }
+                .help("更多操作")
+            }
+        }
+        .confirmationDialog(
+            confirmationTitle,
+            isPresented: Binding(
+                get: { pendingDelete != nil },
+                set: { if !$0 { pendingDelete = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            Button("确认删除", role: .destructive) {
+                if let target = pendingDelete {
+                    deleteTasks(target: target)
+                }
+                pendingDelete = nil
+            }
+            Button("取消", role: .cancel) { pendingDelete = nil }
+        } message: {
+            Text(confirmationMessage)
+        }
+    }
+
+    private var confirmationTitle: String {
+        switch pendingDelete {
+        case .incomplete: return "删除所有未完成任务？"
+        case .completed:  return "删除所有已完成任务？"
+        case .all:        return "删除全部任务？"
+        case nil:         return ""
+        }
+    }
+
+    private var confirmationMessage: String {
+        switch pendingDelete {
+        case .incomplete: return "此操作将删除该 context 下所有未完成的任务，无法撤销。"
+        case .completed:  return "此操作将删除该 context 下所有已完成的任务，无法撤销。"
+        case .all:        return "此操作将删除该 context 下的全部任务，无法撤销。"
+        case nil:         return ""
+        }
+    }
+
+    private func deleteTasks(target: DeleteTarget) {
+        let items = allItemsUnfiltered
+        withAnimation {
+            switch target {
+            case .incomplete:
+                items.filter { !$0.isCompleted }.forEach { modelContext.delete($0) }
+            case .completed:
+                items.filter { $0.isCompleted }.forEach { modelContext.delete($0) }
+            case .all:
+                items.forEach { modelContext.delete($0) }
+            }
+        }
     }
     
     private func toggleCompletion(for item: Item) {
