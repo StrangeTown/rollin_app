@@ -29,7 +29,15 @@ struct MemorizeView: View {
             isInputFocused = true
             pickRandom()
         }
+        .onKeyPress(.escape) {
+            if isInputFocused {
+                isInputFocused = false
+                return .handled
+            }
+            return .ignored
+        }
         .onKeyPress(.rightArrow) {
+            guard !isInputFocused, editingItem == nil else { return .ignored }
             pickRandom()
             return .handled
         }
@@ -77,8 +85,7 @@ struct MemorizeView: View {
 
             // Input area (Bottom)
             VStack(spacing: 0) {
-                HStack(alignment: .bottom, spacing: 12) {
-                    ZStack(alignment: .topLeading) {
+                ZStack(alignment: .topLeading) {
                         if newContent.isEmpty {
                             Text("输入新的工作要点…")
                                 .foregroundStyle(.tertiary)
@@ -106,16 +113,6 @@ struct MemorizeView: View {
                                 return .handled
                             }
                     }
-
-                    Button(action: addItem) {
-                        Image(systemName: "arrow.up.circle.fill")
-                            .font(.system(size: 28))
-                            .foregroundStyle(newContent.trimmingCharacters(in: .whitespaces).isEmpty ? Color.secondary.opacity(0.3) : .purple)
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(newContent.trimmingCharacters(in: .whitespaces).isEmpty)
-                    .padding(.bottom, 6)
-                }
                 
                 HStack {
                     Text("可以用 ⌘+↩ 快速提交")
@@ -279,6 +276,10 @@ struct MemorizeView: View {
             .font(.caption)
             .foregroundStyle(.tertiary)
             .padding(.vertical, 24)
+        }
+        .contentShape(Rectangle())
+        .onTapGesture {
+            NSApp.keyWindow?.makeFirstResponder(nil)
         }
     }
 
