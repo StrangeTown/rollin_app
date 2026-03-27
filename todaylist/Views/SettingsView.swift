@@ -17,6 +17,7 @@ enum SettingsCategory: String, CaseIterable, Identifiable {
 struct SettingsView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.openWindow) private var openWindow
     
     @AppStorage("retentionDays") private var retentionDays: Int = 365
     @State private var showCleanupAlert = false
@@ -26,11 +27,24 @@ struct SettingsView: View {
     
     var body: some View {
         NavigationSplitView {
-            List(SettingsCategory.allCases, selection: $selectedCategory) { category in
-                NavigationLink(value: category) {
-                    Label(category.rawValue, systemImage: category.icon)
-                        .padding(.vertical, 4)
+            List {
+                ForEach(SettingsCategory.allCases) { category in
+                    NavigationLink(value: category) {
+                        Label(category.rawValue, systemImage: category.icon)
+                            .padding(.vertical, 4)
+                    }
                 }
+                
+                Divider()
+                
+                Button {
+                    openWindow(id: "memorize")
+                } label: {
+                    Label("Memorize", systemImage: "brain.head.profile")
+                        .padding(.vertical, 4)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .buttonStyle(.plain)
             }
             .navigationSplitViewColumnWidth(min: 150, ideal: 180, max: 220)
         } detail: {

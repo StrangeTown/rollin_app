@@ -12,11 +12,11 @@ import SwiftData
 
 enum DataMigrationPlan: SchemaMigrationPlan {
     static var schemas: [any VersionedSchema.Type] {
-        [SchemaV1.self, SchemaV2.self, SchemaV3.self, SchemaV4.self, SchemaV5.self]
+        [SchemaV1.self, SchemaV2.self, SchemaV3.self, SchemaV4.self, SchemaV5.self, SchemaV6.self]
     }
 
     static var stages: [MigrationStage] {
-        [migrateV1toV2, migrateV2toV3, migrateV3toV4, migrateV4toV5]
+        [migrateV1toV2, migrateV2toV3, migrateV3toV4, migrateV4toV5, migrateV5toV6]
     }
 
     static let migrateV1toV2 = MigrationStage.lightweight(
@@ -37,6 +37,11 @@ enum DataMigrationPlan: SchemaMigrationPlan {
     static let migrateV4toV5 = MigrationStage.lightweight(
         fromVersion: SchemaV4.self,
         toVersion: SchemaV5.self
+    )
+
+    static let migrateV5toV6 = MigrationStage.lightweight(
+        fromVersion: SchemaV5.self,
+        toVersion: SchemaV6.self
     )
 }
 
@@ -357,6 +362,98 @@ enum SchemaV5: VersionedSchema {
     }
 }
 
+// MARK: - Schema V6 (Current)
+
+enum SchemaV6: VersionedSchema {
+    static var versionIdentifier = Schema.Version(6, 0, 0)
+
+    static var models: [any PersistentModel.Type] {
+        [Item.self, ContextNode.self, MemorizeItem.self]
+    }
+
+    @Model
+    final class Item {
+        var title: String = ""
+        var timestamp: Date = Date()
+        var isCompleted: Bool = false
+        var isToday: Bool = false
+        var assignedDate: Date? = nil
+        var completedAt: Date? = nil
+
+        var context: ContextNode?
+
+        var startedAt: Date? = nil
+        var accumulatedDuration: TimeInterval = 0
+
+        var todayPriorityDate: Date? = nil
+
+        var totalDuration: TimeInterval? {
+            guard hasBeenTracked else { return nil }
+            if let startedAt, !isCompleted {
+                return accumulatedDuration + Date().timeIntervalSince(startedAt)
+            }
+            return accumulatedDuration
+        }
+
+        var isInProgress: Bool {
+            startedAt != nil && !isCompleted
+        }
+
+        var hasBeenTracked: Bool {
+            accumulatedDuration > 0 || startedAt != nil
+        }
+
+        init(title: String = "", timestamp: Date = Date(), isCompleted: Bool = false, isToday: Bool = false, assignedDate: Date? = nil, completedAt: Date? = nil, context: ContextNode? = nil) {
+            self.title = title
+            self.timestamp = timestamp
+            self.isCompleted = isCompleted
+            self.isToday = isToday
+            self.assignedDate = assignedDate
+            self.completedAt = completedAt
+            self.context = context
+        }
+    }
+
+    @Model
+    final class ContextNode {
+        var name: String = ""
+        var id: UUID = UUID()
+        var sortOrder: Int = 0
+
+        var parent: ContextNode?
+        @Relationship(deleteRule: .cascade, inverse: \ContextNode.parent)
+        var children: [ContextNode]? = []
+
+        @Relationship(deleteRule: .nullify, inverse: \Item.context)
+        var items: [Item]? = []
+
+        init(name: String, parent: ContextNode? = nil) {
+            self.name = name
+            self.parent = parent
+        }
+
+        var fullPath: String {
+            if let parent = parent {
+                return parent.fullPath + " / " + name
+            } else {
+                return name
+            }
+        }
+    }
+
+    @Model
+    final class MemorizeItem {
+        var id: UUID = UUID()
+        var content: String = ""
+        var createdAt: Date = Date()
+
+        init(content: String) {
+            self.content = content
+        }
+    }
+}
+
 // Typealiases for easy access to the latest version
-typealias Item = SchemaV5.Item
-typealias ContextNode = SchemaV5.ContextNode
+typealias Item = SchemaV6.Item
+typealias ContextNode = SchemaV6.ContextNode
+typealias MemorizeItem = SchemaV6.MemorizeItem

@@ -11,7 +11,7 @@ import SwiftData
 @main
 struct todaylistApp: App {
     var sharedModelContainer: ModelContainer = {
-        let schema = Schema(SchemaV5.models)
+        let schema = Schema(SchemaV6.models)
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 
         do {
@@ -37,6 +37,12 @@ struct todaylistApp: App {
             }
         }
         
+        Window("Memorize", id: "memorize") {
+            MemorizeView()
+                .modelContainer(sharedModelContainer)
+        }
+        .defaultSize(width: 700, height: 500)
+
         Settings {
             SettingsView()
                 .modelContainer(sharedModelContainer)
