@@ -8,11 +8,23 @@
 import SwiftUI
 import SwiftData
 
+private struct InboxCompletionToastState {
+    let itemID: PersistentIdentifier
+    let assignedDate: Date?
+    let todayPriorityDate: Date?
+    let completedAt: Date?
+    let startedAt: Date?
+    let accumulatedDuration: TimeInterval
+    let isCompleted: Bool
+}
+
 struct ContentView: View {
     private enum TodayTaskFilterMode: Hashable {
         case all
         case incomplete
     }
+
+    private static let inboxToastAutoDismissDuration: TimeInterval = 2.5
 
     // MARK: - Environment & State
     @Environment(\.modelContext) private var modelContext
@@ -52,6 +64,11 @@ struct ContentView: View {
     @State private var todayPriorityOnlyFilter = false
     @State private var showTodayContextFilterPicker = false
     @State private var showCommandPalette = false
+    @State private var inboxCompletionToast: InboxCompletionToastState?
+    @State private var inboxToastDismissWorkItem: DispatchWorkItem?
+    @State private var inboxToastDismissScheduledAt: Date?
+    @State private var inboxToastRemainingDuration: TimeInterval = ContentView.inboxToastAutoDismissDuration
+    @State private var isInboxToastHovering = false
     
     @State private var taskToEdit: Item?
     @State private var showSettings = false
@@ -90,6 +107,11 @@ struct ContentView: View {
             VStack(spacing: 0) {
                 List {
                     inboxSection
+                }
+                .safeAreaInset(edge: .bottom, spacing: 0) {
+                    if inboxCompletionToast != nil {
+                        inboxCompletionToastView
+                    }
                 }
                 .frame(maxHeight: 500)
                 
@@ -240,6 +262,9 @@ struct ContentView: View {
             Task { @MainActor in
                 _ = DataCleanupManager.cleanOldTasks(context: modelContext, daysToKeep: retentionDays)
             }
+        }
+        .onDisappear {
+            cancelInboxToastDismiss()
         }
         .onChange(of: scenePhase) { _, newPhase in
             if newPhase == .active {
@@ -652,6 +677,123 @@ struct ContentView: View {
         }
     }
 
+    private func toggleInboxCompletion(for item: Item) {
+        guard !item.isCompleted else {
+            toggleCompletion(for: item)
+            return
+        }
+
+        let toastState = InboxCompletionToastState(
+            itemID: item.persistentModelID,
+            assignedDate: item.assignedDate,
+            todayPriorityDate: item.todayPriorityDate,
+            completedAt: item.completedAt,
+            startedAt: item.startedAt,
+            accumulatedDuration: item.accumulatedDuration,
+            isCompleted: item.isCompleted
+        )
+
+        withAnimation {
+            if item.isInProgress, let startedAt = item.startedAt {
+                item.accumulatedDuration += Date().timeIntervalSince(startedAt)
+                item.startedAt = nil
+            }
+            item.isCompleted = true
+            item.completedAt = Date()
+            item.assignedDate = currentDate
+            item.todayPriorityDate = nil
+        }
+
+        showInboxCompletionToast(with: toastState)
+    }
+
+    private func showInboxCompletionToast(with state: InboxCompletionToastState) {
+        cancelInboxToastDismiss()
+        inboxToastRemainingDuration = Self.inboxToastAutoDismissDuration
+        isInboxToastHovering = false
+
+        withAnimation(Theme.Animation.standard) {
+            inboxCompletionToast = state
+        }
+
+        scheduleInboxToastDismiss(after: inboxToastRemainingDuration)
+    }
+
+    private func scheduleInboxToastDismiss(after delay: TimeInterval) {
+        guard inboxCompletionToast != nil else { return }
+
+        let adjustedDelay = max(0.35, delay)
+        let workItem = DispatchWorkItem {
+            clearInboxToast(animated: true)
+        }
+
+        inboxToastDismissWorkItem = workItem
+        inboxToastDismissScheduledAt = Date()
+        DispatchQueue.main.asyncAfter(deadline: .now() + adjustedDelay, execute: workItem)
+    }
+
+    private func cancelInboxToastDismiss() {
+        inboxToastDismissWorkItem?.cancel()
+        inboxToastDismissWorkItem = nil
+        inboxToastDismissScheduledAt = nil
+    }
+
+    private func clearInboxToast(animated: Bool) {
+        cancelInboxToastDismiss()
+        inboxToastRemainingDuration = Self.inboxToastAutoDismissDuration
+        isInboxToastHovering = false
+
+        if animated {
+            withAnimation(Theme.Animation.standard) {
+                inboxCompletionToast = nil
+            }
+        } else {
+            inboxCompletionToast = nil
+        }
+    }
+
+    private func handleInboxToastHoverChange(_ hovering: Bool) {
+        guard inboxCompletionToast != nil else { return }
+        guard hovering != isInboxToastHovering else { return }
+
+        isInboxToastHovering = hovering
+
+        if hovering {
+            if let scheduledAt = inboxToastDismissScheduledAt {
+                let elapsed = Date().timeIntervalSince(scheduledAt)
+                inboxToastRemainingDuration = max(0, inboxToastRemainingDuration - elapsed)
+            }
+            cancelInboxToastDismiss()
+        } else {
+            scheduleInboxToastDismiss(after: inboxToastRemainingDuration)
+        }
+    }
+
+    private func undoInboxCompletion() {
+        guard let toast = inboxCompletionToast else { return }
+
+        cancelInboxToastDismiss()
+
+        let scheduledMatch = scheduledItems.first { $0.persistentModelID == toast.itemID }
+        let inboxMatch = inboxItems.first { $0.persistentModelID == toast.itemID }
+
+        guard let item = scheduledMatch ?? inboxMatch else {
+            clearInboxToast(animated: true)
+            return
+        }
+
+        withAnimation {
+            item.assignedDate = toast.assignedDate
+            item.todayPriorityDate = toast.todayPriorityDate
+            item.isCompleted = toast.isCompleted
+            item.completedAt = toast.completedAt
+            item.startedAt = toast.startedAt
+            item.accumulatedDuration = toast.accumulatedDuration
+        }
+
+        clearInboxToast(animated: true)
+    }
+
     private func moveToToday(_ item: Item) {
         withAnimation {
             // Assign current date to move from Inbox to Today
@@ -813,7 +955,7 @@ struct ContentView: View {
             ForEach(inboxItems) { item in
                 TaskRowView(
                     item: item,
-                    onToggleCompletion: { toggleCompletion(for: item) },
+                    onToggleCompletion: { toggleInboxCompletion(for: item) },
                     onMove: { moveToToday(item) },
                     onDelete: { deleteItem(item) },
                     onEdit: {
@@ -828,6 +970,42 @@ struct ContentView: View {
             }
             .onDelete(perform: deleteInboxItems)
         }
+    }
+
+    private var inboxCompletionToastView: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "checkmark.circle.fill")
+                .foregroundStyle(Theme.Colors.todayAccent)
+
+            Text("已移到【今天 - 已完成】")
+                .font(.subheadline)
+                .foregroundStyle(.primary)
+
+            Spacer(minLength: 12)
+
+            Button("撤销") {
+                undoInboxCompletion()
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(Theme.Colors.todayAccent)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(.regularMaterial)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(Color.secondary.opacity(0.12), lineWidth: 1)
+        )
+        .shadow(color: .black.opacity(0.08), radius: 8, y: 2)
+        .padding(.horizontal, 12)
+        .padding(.bottom, 8)
+        .onHover { hovering in
+            handleInboxToastHoverChange(hovering)
+        }
+        .transition(.move(edge: .bottom).combined(with: .opacity))
     }
     
     private var inboxSectionHeader: some View {
@@ -1282,6 +1460,7 @@ struct ContextDetailView: View {
     private func moveToToday(_ item: Item) {
         withAnimation {
             item.assignedDate = Date()
+            item.todayPriorityDate = nil
         }
     }
 

@@ -219,7 +219,7 @@ struct TaskRowView: View {
                 Divider()
             }
 
-            if !isScheduled || isToday {
+            if !isScheduled || (isToday && !item.isCompleted) {
                 Button(action: onMove) {
                     Label(isScheduled ? "Move to Inbox" : "Move to Today",
                           systemImage: isScheduled ? Theme.Icons.moveToInbox : Theme.Icons.moveToToday)
