@@ -18,6 +18,7 @@ struct SettingsView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openWindow) private var openWindow
+    @Environment(\.openURL) private var openURL
     
     @AppStorage("retentionDays") private var retentionDays: Int = 365
     @State private var showCleanupAlert = false
@@ -41,6 +42,18 @@ struct SettingsView: View {
                     openWindow(id: "memorize")
                 } label: {
                     Label("Memorize", systemImage: "brain.head.profile")
+                        .padding(.vertical, 4)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+
+                Button {
+                    if let url = URL(string: "mailto:yinxingdyx@163.com?subject=Follin%20Feedback") {
+                        openURL(url)
+                    }
+                } label: {
+                    Label("联系作者", systemImage: "envelope")
                         .padding(.vertical, 4)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .contentShape(Rectangle())
