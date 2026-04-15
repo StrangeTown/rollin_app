@@ -13,6 +13,7 @@ struct AddTaskView: View {
     @State private var title = ""
     @State private var selectedContext: ContextNode?
     @State private var showContextPicker = false
+    @State private var isPriority = false
 
     init(assignedDate: Date? = nil, initialContext: ContextNode? = nil) {
         self.assignedDate = assignedDate
@@ -91,20 +92,38 @@ struct AddTaskView: View {
                     }
                 }
 
-                // 3. Date pill — visually separated from contexts
+                // 3. Date & Priority pills — visually separated from contexts
                 if assignedDate != nil {
                     Divider()
                         .padding(.vertical, 2)
-                    HStack(spacing: 6) {
-                        Image(systemName: Theme.Icons.calendar)
-                        Text("Today")
+                    HStack(spacing: 8) {
+                        HStack(spacing: 6) {
+                            Image(systemName: Theme.Icons.calendar)
+                            Text("Today")
+                        }
+                        .font(.subheadline)
+                        .foregroundStyle(.orange)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(Color.orange.opacity(0.1))
+                        .clipShape(Capsule())
+
+                        Button {
+                            isPriority.toggle()
+                        } label: {
+                            HStack(spacing: 6) {
+                                Image(systemName: isPriority ? Theme.Icons.priority : Theme.Icons.priorityOff)
+                                Text("优先")
+                            }
+                            .font(.subheadline)
+                            .foregroundStyle(isPriority ? .red : .secondary)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .background(isPriority ? Color.red.opacity(0.1) : Color.gray.opacity(0.08))
+                            .clipShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
                     }
-                    .font(.subheadline)
-                    .foregroundStyle(.orange)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .background(Color.orange.opacity(0.1))
-                    .clipShape(Capsule())
                 }
                 
                 Spacer()
@@ -145,6 +164,9 @@ struct AddTaskView: View {
         }
 
         let newItem = Item(title: trimmedTitle, assignedDate: assignedDate, context: selectedContext)
+        if isPriority, let assignedDate {
+            newItem.todayPriorityDate = Calendar.current.startOfDay(for: assignedDate)
+        }
         modelContext.insert(newItem)
         dismiss()
     }
