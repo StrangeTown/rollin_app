@@ -18,6 +18,10 @@ private struct InboxCompletionToastState {
     let isCompleted: Bool
 }
 
+private enum DetailListScrollTarget: Hashable {
+    case top
+}
+
 struct ContentView: View {
     private enum TodayTaskFilterMode: Hashable {
         case all
@@ -25,6 +29,7 @@ struct ContentView: View {
     }
 
     private static let inboxToastAutoDismissDuration: TimeInterval = 2.5
+    private static let backToTopRevealOffset: CGFloat = 360
 
     // MARK: - Environment & State
     @Environment(\.modelContext) private var modelContext
@@ -69,6 +74,8 @@ struct ContentView: View {
     @State private var inboxToastDismissScheduledAt: Date?
     @State private var inboxToastRemainingDuration: TimeInterval = ContentView.inboxToastAutoDismissDuration
     @State private var isInboxToastHovering = false
+    @State private var showBackToTopButton = false
+    @State private var isBackToTopHovering = false
     
     @State private var taskToEdit: Item?
     @State private var showSettings = false
@@ -135,81 +142,131 @@ struct ContentView: View {
                 ContextDetailView(context: context, taskToEdit: $taskToEdit, selectedContext: $selectedContext)
             } else {
                 // MARK: - Detail View (Scheduled Tasks)
-                List {
-                if scheduledItems.isEmpty {
-                    ContentUnavailableView("No scheduled tasks", systemImage: "calendar", description: Text("Move tasks from Inbox to plan your day."))
-                } else {
-                    ForEach(sortedDates, id: \.self) { date in
-                        // Group tasks by date (Today, Yesterday, etc.)
-                        Section(header: 
-                            HStack {
-                                sectionHeaderView(for: date)
-                                if Calendar.current.isDate(date, inSameDayAs: currentDate) {
-                                    todayTaskFilterControl
-                                    Spacer()
+                ScrollViewReader { proxy in
+                    List {
+                        if scheduledItems.isEmpty {
+                            ContentUnavailableView("No scheduled tasks", systemImage: "calendar", description: Text("Move tasks from Inbox to plan your day."))
+                        } else {
+                            Color.clear
+                                .frame(height: 1)
+                                .id(DetailListScrollTarget.top)
+                                .listRowSeparator(.hidden)
+                                .listRowInsets(EdgeInsets())
 
-                                    Button(action: {
-                                        showDailyLogSheet = true
-                                    }) {
-                                        Image(systemName: "note.text")
-                                    }
-                                    .buttonStyle(.borderless)
-                                    .help("记录流水账")
+                            ForEach(sortedDates, id: \.self) { date in
+                                // Group tasks by date (Today, Yesterday, etc.)
+                                Section(header:
+                                    HStack {
+                                        sectionHeaderView(for: date)
+                                        if Calendar.current.isDate(date, inSameDayAs: currentDate) {
+                                            todayTaskFilterControl
+                                            Spacer()
 
-                                    Button(action: {
-                                        showTimelineSheet = true
-                                    }) {
-                                        Image(systemName: Theme.Icons.timeline)
+                                            Button(action: {
+                                                showDailyLogSheet = true
+                                            }) {
+                                                Image(systemName: "note.text")
+                                            }
+                                            .buttonStyle(.borderless)
+                                            .help("记录流水账")
+
+                                            Button(action: {
+                                                showTimelineSheet = true
+                                            }) {
+                                                Image(systemName: Theme.Icons.timeline)
+                                            }
+                                            .buttonStyle(.borderless)
+                                            .help("View today's timeline")
+
+                                            Button(action: {
+                                                taskAssignedDate = currentDate
+                                                showAddTaskSheet = true
+                                            }) {
+                                                Image(systemName: Theme.Icons.add)
+                                            }
+                                            .buttonStyle(.borderless)
+                                            .help("Add task to Today (⌘T)")
+                                        }
                                     }
-                                    .buttonStyle(.borderless)
-                                    .help("View today's timeline")
-                                    
-                                    Button(action: {
-                                        taskAssignedDate = currentDate
-                                        showAddTaskSheet = true
-                                    }) {
-                                        Image(systemName: Theme.Icons.add)
+                                ) {
+                                    let isTodaySection = Calendar.current.isDate(date, inSameDayAs: currentDate)
+                                    let sectionItems = filteredItems(for: date, items: grouped[date] ?? [])
+                                    if sectionItems.isEmpty, isTodaySection {
+                                        Text(todaySectionEmptyMessage)
+                                            .font(.subheadline)
+                                            .foregroundStyle(.secondary)
+                                            .padding(.vertical, 8)
+                                    } else {
+                                        ForEach(sectionItems) { item in
+                                            TaskRowView(
+                                                item: item,
+                                                onToggleCompletion: { toggleCompletion(for: item) },
+                                                onMove: { removeFromToday(item) },
+                                                onDelete: { deleteItem(item) },
+                                                onEdit: {
+                                                    taskToEdit = item
+                                                },
+                                                isScheduled: true,
+                                                isToday: isTodaySection,
+                                                showContextTag: false,
+                                                onStartTask: isTodaySection ? { startTask(item) } : nil,
+                                                onToggleTodayPriority: isTodaySection ? { toggleTodayPriority(for: item) } : nil
+                                            )
+                                            .listRowSeparator(.hidden)
+                                            .listRowInsets(EdgeInsets(top: Theme.Spacing.listItemVertical, leading: 0, bottom: Theme.Spacing.listItemVertical, trailing: 0))
+                                        }
+                                        .onDelete { offsets in
+                                            deleteScheduledItems(at: offsets, in: sectionItems)
+                                        }
                                     }
-                                    .buttonStyle(.borderless)
-                                    .help("Add task to Today (⌘T)")
-                                }
-                            }
-                        ) {
-                            let isTodaySection = Calendar.current.isDate(date, inSameDayAs: currentDate)
-                            let sectionItems = filteredItems(for: date, items: grouped[date] ?? [])
-                            if sectionItems.isEmpty, isTodaySection {
-                                Text(todaySectionEmptyMessage)
-                                    .font(.subheadline)
-                                    .foregroundStyle(.secondary)
-                                    .padding(.vertical, 8)
-                            } else {
-                                ForEach(sectionItems) { item in
-                                    TaskRowView(
-                                        item: item,
-                                        onToggleCompletion: { toggleCompletion(for: item) },
-                                        onMove: { removeFromToday(item) },
-                                        onDelete: { deleteItem(item) },
-                                        onEdit: {
-                                            taskToEdit = item
-                                        },
-                                        isScheduled: true,
-                                        isToday: isTodaySection,
-                                        showContextTag: false,
-                                        onStartTask: isTodaySection ? { startTask(item) } : nil,
-                                        onToggleTodayPriority: isTodaySection ? { toggleTodayPriority(for: item) } : nil
-                                    )
-                                    .listRowSeparator(.hidden)
-                                    .listRowInsets(EdgeInsets(top: Theme.Spacing.listItemVertical, leading: 0, bottom: Theme.Spacing.listItemVertical, trailing: 0))
-                                }
-                                .onDelete { offsets in
-                                    deleteScheduledItems(at: offsets, in: sectionItems)
                                 }
                             }
                         }
                     }
+                    .overlay(alignment: .bottomTrailing) {
+                        if showBackToTopButton {
+                            Button {
+                                withAnimation(.easeInOut(duration: 0.28)) {
+                                    proxy.scrollTo(DetailListScrollTarget.top, anchor: .top)
+                                }
+                            } label: {
+                                Image(systemName: "arrow.up")
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundStyle(.white)
+                                    .frame(width: 40, height: 40)
+                                    .background(
+                                        Circle()
+                                            .fill(isBackToTopHovering ? Theme.Colors.todayAccent.opacity(0.88) : Theme.Colors.todayAccent)
+                                    )
+                                    .overlay(
+                                        Circle()
+                                            .stroke(Color.white.opacity(isBackToTopHovering ? 0.28 : 0.12), lineWidth: 1)
+                                    )
+                                    .scaleEffect(isBackToTopHovering ? 1.08 : 1)
+                            }
+                            .buttonStyle(.plain)
+                            .help("回到顶部")
+                            .shadow(color: Color.black.opacity(isBackToTopHovering ? 0.24 : 0.16), radius: isBackToTopHovering ? 18 : 14, x: 0, y: isBackToTopHovering ? 10 : 8)
+                            .padding(.trailing, 20)
+                            .padding(.bottom, 18)
+                            .onHover { hovering in
+                                withAnimation(Theme.Animation.standard) {
+                                    isBackToTopHovering = hovering
+                                }
+                            }
+                            .transition(.move(edge: .bottom).combined(with: .opacity))
+                        }
+                    }
+                    .animation(Theme.Animation.standard, value: showBackToTopButton)
+                    .onScrollGeometryChange(for: CGFloat.self) { geometry in
+                        max(0, geometry.contentOffset.y + geometry.contentInsets.top)
+                    } action: { _, newValue in
+                        let shouldShow = newValue > Self.backToTopRevealOffset
+                        guard shouldShow != showBackToTopButton else { return }
+                        showBackToTopButton = shouldShow
+                    }
                 }
             }
-        }
         }
         .overlay {
             if showAddContextAlert {
