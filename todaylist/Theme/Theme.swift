@@ -194,11 +194,6 @@ enum Theme {
         // Node indicators
         static let nodeParent = "chevron.right"
         static let nodeLeaf = "circle"
-        
-        // Timer
-        static let startTask = "play.circle"
-        static let pauseTask = "pause.circle"
-        static let timer = "timer"
 
         // Empty states
         static let emptyCalendar = "calendar"

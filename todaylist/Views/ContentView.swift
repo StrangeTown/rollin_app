@@ -13,8 +13,6 @@ private struct InboxCompletionToastState {
     let assignedDate: Date?
     let todayPriorityDate: Date?
     let completedAt: Date?
-    let startedAt: Date?
-    let accumulatedDuration: TimeInterval
     let isCompleted: Bool
 }
 
@@ -199,7 +197,6 @@ struct ContentView: View {
                                                 isScheduled: true,
                                                 isToday: isTodaySection,
                                                 showContextTag: false,
-                                                onStartTask: isTodaySection ? { startTask(item) } : nil,
                                                 onToggleTodayPriority: isTodaySection ? { toggleTodayPriority(for: item) } : nil
                                             )
                                             .listRowSeparator(.hidden)
@@ -710,18 +707,11 @@ struct ContentView: View {
 
     private func toggleCompletion(for item: Item) {
         withAnimation {
-            // Accumulate in-progress time before toggling (isInProgress requires !isCompleted)
-            if !item.isCompleted, item.isInProgress, let startedAt = item.startedAt {
-                item.accumulatedDuration += Date().timeIntervalSince(startedAt)
-                item.startedAt = nil
-            }
             item.isCompleted.toggle()
             if item.isCompleted {
                 item.completedAt = Date()
             } else {
                 item.completedAt = nil
-                item.startedAt = nil
-                item.accumulatedDuration = 0
             }
         }
     }
@@ -737,16 +727,10 @@ struct ContentView: View {
             assignedDate: item.assignedDate,
             todayPriorityDate: item.todayPriorityDate,
             completedAt: item.completedAt,
-            startedAt: item.startedAt,
-            accumulatedDuration: item.accumulatedDuration,
             isCompleted: item.isCompleted
         )
 
         withAnimation {
-            if item.isInProgress, let startedAt = item.startedAt {
-                item.accumulatedDuration += Date().timeIntervalSince(startedAt)
-                item.startedAt = nil
-            }
             item.isCompleted = true
             item.completedAt = Date()
             item.assignedDate = currentDate
@@ -836,8 +820,6 @@ struct ContentView: View {
             item.todayPriorityDate = toast.todayPriorityDate
             item.isCompleted = toast.isCompleted
             item.completedAt = toast.completedAt
-            item.startedAt = toast.startedAt
-            item.accumulatedDuration = toast.accumulatedDuration
         }
 
         clearInboxToast(animated: true)
@@ -866,9 +848,6 @@ struct ContentView: View {
             // Remove assigned date to move back to Inbox
             item.assignedDate = nil
             item.todayPriorityDate = nil
-            // Clear timer state
-            item.startedAt = nil
-            item.accumulatedDuration = 0
         }
     }
 
@@ -885,35 +864,6 @@ struct ContentView: View {
             } else {
                 item.todayPriorityDate = Calendar.current.startOfDay(for: assignedDate)
             }
-        }
-    }
-
-    // MARK: - Timer Functions
-
-    private func startTask(_ item: Item) {
-        withAnimation {
-            if item.isInProgress {
-                // Pause: accumulate current segment
-                stopTask(item)
-            } else {
-                // Start/Resume: pause any other active task first
-                pauseCurrentlyActiveTask()
-                item.startedAt = Date()
-            }
-        }
-    }
-
-    private func pauseCurrentlyActiveTask() {
-        let activeItems = scheduledItems.filter { $0.startedAt != nil && !$0.isCompleted }
-        for activeItem in activeItems {
-            stopTask(activeItem)
-        }
-    }
-
-    private func stopTask(_ item: Item) {
-        if let startedAt = item.startedAt {
-            item.accumulatedDuration += Date().timeIntervalSince(startedAt)
-            item.startedAt = nil
         }
     }
 
@@ -953,9 +903,6 @@ struct ContentView: View {
             for item in overdueItems {
                 item.assignedDate = nil
                 item.todayPriorityDate = nil
-                // Clear timer state for overdue tasks
-                item.startedAt = nil
-                item.accumulatedDuration = 0
             }
         }
     }
@@ -1490,18 +1437,11 @@ struct ContextDetailView: View {
     
     private func toggleCompletion(for item: Item) {
         withAnimation {
-            // Accumulate in-progress time before toggling (isInProgress requires !isCompleted)
-            if !item.isCompleted, item.isInProgress, let startedAt = item.startedAt {
-                item.accumulatedDuration += Date().timeIntervalSince(startedAt)
-                item.startedAt = nil
-            }
             item.isCompleted.toggle()
             if item.isCompleted {
                 item.completedAt = Date()
             } else {
                 item.completedAt = nil
-                item.startedAt = nil
-                item.accumulatedDuration = 0
             }
         }
     }

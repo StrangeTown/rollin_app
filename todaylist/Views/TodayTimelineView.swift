@@ -90,10 +90,7 @@ struct TodayTimelineView: View {
         filteredItems.map { item in
             let time = item.completedAt.map { Self.timeFormatter.string(from: $0) } ?? ""
             let tag = item.context.map { "[\($0.name)] " } ?? ""
-            let duration = item.hasBeenTracked
-                ? " (\(ElapsedTimeView.formatDuration(item.accumulatedDuration)))"
-                : ""
-            return "- \(time)\(duration) \(tag)\(item.title)"
+            return "- \(time) \(tag)\(item.title)"
         }.joined(separator: "\n")
     }
 
@@ -246,9 +243,6 @@ struct TimelineItemRow: View {
                 if let completedAt = item.completedAt {
                     HStack(spacing: 4) {
                         Text(timeFormatter.string(from: completedAt))
-                        if item.hasBeenTracked {
-                            Text("· \(ElapsedTimeView.formatDuration(item.accumulatedDuration))")
-                        }
                         if let context = item.context {
                             Text("·")
                             Text(context.fullPath)

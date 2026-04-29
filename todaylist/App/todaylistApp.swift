@@ -11,7 +11,7 @@ import SwiftData
 @main
 struct todaylistApp: App {
     var sharedModelContainer: ModelContainer = {
-        let schema = Schema(SchemaV6.models)
+        let schema = Schema(SchemaV7.models)
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 
         do {
