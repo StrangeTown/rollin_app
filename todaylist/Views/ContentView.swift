@@ -18,10 +18,6 @@ private struct InboxCompletionToastState {
     let isCompleted: Bool
 }
 
-private enum DetailListScrollTarget: Hashable {
-    case top
-}
-
 struct ContentView: View {
     private enum TodayTaskFilterMode: Hashable {
         case all
@@ -147,12 +143,6 @@ struct ContentView: View {
                         if scheduledItems.isEmpty {
                             ContentUnavailableView("No scheduled tasks", systemImage: "calendar", description: Text("Move tasks from Inbox to plan your day."))
                         } else {
-                            Color.clear
-                                .frame(height: 1)
-                                .id(DetailListScrollTarget.top)
-                                .listRowSeparator(.hidden)
-                                .listRowInsets(EdgeInsets())
-
                             ForEach(sortedDates, id: \.self) { date in
                                 // Group tasks by date (Today, Yesterday, etc.)
                                 Section(header:
@@ -227,7 +217,9 @@ struct ContentView: View {
                         if showBackToTopButton {
                             Button {
                                 withAnimation(.easeInOut(duration: 0.28)) {
-                                    proxy.scrollTo(DetailListScrollTarget.top, anchor: .top)
+                                    if let firstDate = sortedDates.first {
+                                        proxy.scrollTo(firstDate, anchor: .top)
+                                    }
                                 }
                             } label: {
                                 Image(systemName: "arrow.up")
