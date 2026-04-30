@@ -2,7 +2,7 @@
 description: "构建、签名、公证并发布 Follin macOS 应用到 GitHub Release。Use when: 发布新版本、release、打包 DMG"
 agent: "agent"
 tools: [execute, read, search]
-argument-hint: "版本号，如 1.2.0"
+argument-hint: "版本号（可选，留空将基于最近 tag 建议下一个 patch 版本，如 1.2.0）"
 ---
 
 你是 Follin (macOS SwiftUI 应用) 的发布助手。请严格按照以下流程逐步执行发布操作。
@@ -14,6 +14,43 @@ argument-hint: "版本号，如 1.2.0"
 - **逐步执行**：每一步执行完毕后，确认命令返回值为 0 才进入下一步
 - **失败即停**：任何步骤失败，立即停止并报告错误原因，不要跳过
 - **确认再继续**：在执行最后的 git push 和 gh release 之前，先向用户展示即将发布的内容摘要，确认后再执行
+
+## Step -1: 解析版本号
+
+**目标**：得到一个最终用于本次发布的纯数字版本号（不带 `v`），下文统一记作 `VERSION`。
+
+判断规则：
+
+1. 如果 `{{input}}` 非空：
+   - 去掉可能的 `v` / `V` 前缀。
+   - 必须匹配 `^\d+\.\d+\.\d+$`，否则停止并报错。
+   - 用它作为 `VERSION`。
+
+2. 如果 `{{input}}` 为空：
+   - 读取最近一个版本 tag：
+
+     ```bash
+     LAST_TAG=$(git tag --sort=-version:refname | grep -E '^v?[0-9]+\.[0-9]+\.[0-9]+$' | head -n 1)
+     echo "最近 tag: ${LAST_TAG:-<无>}"
+     ```
+
+   - 如果 `LAST_TAG` 为空（仓库还没有任何符合 SemVer 的 tag），**停止**并提示用户：未检测到任何版本 tag，请显式传入版本号，例如 `1.0.0`。
+   - 如果 `LAST_TAG` 存在，按 patch 递增推算建议版本：
+
+     ```bash
+     BASE=${LAST_TAG#v}
+     MAJOR=$(echo "$BASE" | cut -d. -f1)
+     MINOR=$(echo "$BASE" | cut -d. -f2)
+     PATCH=$(echo "$BASE" | cut -d. -f3)
+     SUGGESTED="${MAJOR}.${MINOR}.$((PATCH + 1))"
+     echo "建议版本: $SUGGESTED"
+     ```
+
+   - **必须先向用户确认**，原话提问类似：
+     > 检测到最近版本是 `vX.Y.Z`，建议下一个 patch 版本是 `X.Y.(Z+1)`。是否使用该版本？或请指定其它版本号（如 `1.3.0`、`2.0.0`）。
+   - 用户确认后，把最终敲定的版本号作为 `VERSION`，再继续后面的步骤。**未确认前不要进入 Step 0。**
+
+后续所有步骤中出现的 `{{input}}` 都以本步骤敲定的 `VERSION` 为准（即 `MARKETING_VERSION` 写入 `VERSION`，git tag / commit / release 名称写入 `vVERSION`）。
 
 ## Step 0: 环境检查
 
