@@ -14,6 +14,9 @@ struct FocusSessionView: View {
     /// 由调用方把 `isPresented` 置为 false。
     var onClose: (() -> Void)? = nil
 
+    /// 把「计时进行中」状态向外暴露，调用方可据此把入口图标染色。
+    var isRunningExternal: Binding<Bool>? = nil
+
     @Environment(\.modelContext) private var modelContext
 
     // 拉取所有有 assignedDate 的任务，再在内存中按今天 + 未完成过滤
@@ -48,8 +51,6 @@ struct FocusSessionView: View {
         VStack(spacing: 0) {
             header
 
-            Divider()
-
             Group {
                 if let item = selectedItem {
                     if isEnded, let started = startedAt, let ended = endedAt {
@@ -64,6 +65,13 @@ struct FocusSessionView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .onChange(of: isRunning) { _, newValue in
+            isRunningExternal?.wrappedValue = newValue
+        }
+        .onDisappear {
+            // 视图销毁时同步一次，避免外部状态残留
+            isRunningExternal?.wrappedValue = isRunning
+        }
     }
 
     // MARK: - Header

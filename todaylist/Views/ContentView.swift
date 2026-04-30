@@ -58,6 +58,7 @@ struct ContentView: View {
     @State private var showTimelineSheet = false
     @State private var showDailyLogSheet = false
     @State private var showFocusSession = false
+    @State private var focusIsRunning = false
     @State private var showWeeklyMatrix = false
     @State private var todayTaskFilterMode: TodayTaskFilterMode = .all
     @State private var todayContextFilter: ContextNode?
@@ -155,9 +156,10 @@ struct ContentView: View {
                                                 showFocusSession = true
                                             }) {
                                                 Image(systemName: Theme.Icons.focus)
+                                                    .foregroundStyle(focusIsRunning ? Theme.Colors.todayAccent : Color.secondary)
                                             }
                                             .buttonStyle(.borderless)
-                                            .help("专注计时")
+                                            .help(focusIsRunning ? "专注进行中" : "专注计时")
 
                                             Button(action: {
                                                 showDailyLogSheet = true
@@ -355,8 +357,11 @@ struct ContentView: View {
             DailyLogView(todayItems: todayTasks)
         }
         .inspector(isPresented: $showFocusSession) {
-            FocusSessionView(onClose: { showFocusSession = false })
-                .inspectorColumnWidth(min: 360, ideal: 420, max: 560)
+            FocusSessionView(
+                onClose: { showFocusSession = false },
+                isRunningExternal: $focusIsRunning
+            )
+            .inspectorColumnWidth(min: 360, ideal: 420, max: 560)
         }
         .sheet(isPresented: $showWeeklyMatrix) {
             ReviewView()
