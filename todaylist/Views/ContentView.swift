@@ -354,8 +354,9 @@ struct ContentView: View {
             }
             DailyLogView(todayItems: todayTasks)
         }
-        .sheet(isPresented: $showFocusSession) {
-            FocusSessionView()
+        .inspector(isPresented: $showFocusSession) {
+            FocusSessionView(onClose: { showFocusSession = false })
+                .inspectorColumnWidth(min: 360, ideal: 420, max: 560)
         }
         .sheet(isPresented: $showWeeklyMatrix) {
             ReviewView()

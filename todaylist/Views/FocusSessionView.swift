@@ -10,7 +10,10 @@ import SwiftUI
 import SwiftData
 
 struct FocusSessionView: View {
-    @Environment(\.dismiss) private var dismiss
+    /// 关闭回调。在 inspector 场景下 `@Environment(\.dismiss)` 无法关闭 inspector，
+    /// 由调用方把 `isPresented` 置为 false。
+    var onClose: (() -> Void)? = nil
+
     @Environment(\.modelContext) private var modelContext
 
     // 拉取所有有 assignedDate 的任务，再在内存中按今天 + 未完成过滤
@@ -60,8 +63,7 @@ struct FocusSessionView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .frame(width: 460, height: 520)
-        .interactiveDismissDisabled(true)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     // MARK: - Header
@@ -71,7 +73,7 @@ struct FocusSessionView: View {
             Text("专注计时")
                 .font(.headline)
             Spacer()
-            Button(action: { dismiss() }) {
+            Button(action: { onClose?() }) {
                 Image(systemName: Theme.Icons.dismiss)
                     .foregroundColor(.secondary)
             }
@@ -147,7 +149,7 @@ struct FocusSessionView: View {
             Spacer()
 
             HStack(spacing: 12) {
-                Button(action: { dismiss() }) {
+                Button(action: { onClose?() }) {
                     Text("关闭")
                         .frame(maxWidth: .infinity)
                 }
@@ -195,7 +197,7 @@ struct FocusSessionView: View {
             Spacer()
 
             HStack(spacing: 12) {
-                Button(action: { dismiss() }) {
+                Button(action: { onClose?() }) {
                     Text("关闭")
                         .frame(maxWidth: .infinity)
                 }
