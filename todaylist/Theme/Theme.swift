@@ -190,6 +190,7 @@ enum Theme {
         static let folder = "folder"
         static let priority = "flag"
         static let priorityOff = "flag.slash"
+        static let focus = "target"
         
         // Node indicators
         static let nodeParent = "chevron.right"

@@ -57,6 +57,7 @@ struct ContentView: View {
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
     @State private var showTimelineSheet = false
     @State private var showDailyLogSheet = false
+    @State private var showFocusSession = false
     @State private var showWeeklyMatrix = false
     @State private var todayTaskFilterMode: TodayTaskFilterMode = .all
     @State private var todayContextFilter: ContextNode?
@@ -149,6 +150,14 @@ struct ContentView: View {
                                         if Calendar.current.isDate(date, inSameDayAs: currentDate) {
                                             todayTaskFilterControl
                                             Spacer()
+
+                                            Button(action: {
+                                                showFocusSession = true
+                                            }) {
+                                                Image(systemName: Theme.Icons.focus)
+                                            }
+                                            .buttonStyle(.borderless)
+                                            .help("专注计时")
 
                                             Button(action: {
                                                 showDailyLogSheet = true
@@ -345,6 +354,9 @@ struct ContentView: View {
             }
             DailyLogView(todayItems: todayTasks)
         }
+        .sheet(isPresented: $showFocusSession) {
+            FocusSessionView()
+        }
         .sheet(isPresented: $showWeeklyMatrix) {
             ReviewView()
         }
@@ -416,6 +428,15 @@ struct ContentView: View {
                 keywords: ["log", "daily", "流水账", "记录"]
             ) {
                 showDailyLogSheet = true
+            },
+            CommandPaletteCommand(
+                id: "open-focus",
+                title: "打开专注计时",
+                subtitle: "选一个今日任务开始专注",
+                shortcut: "",
+                keywords: ["focus", "专注", "计时", "pomodoro"]
+            ) {
+                showFocusSession = true
             },
             CommandPaletteCommand(
                 id: "open-weekly-review",
