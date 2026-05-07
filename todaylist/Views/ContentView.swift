@@ -732,6 +732,14 @@ struct ContentView: View {
         return Calendar.current.isDate(priorityDate, inSameDayAs: assignedDate)
     }
 
+    private func isPrioritizedOnAssignedDate(_ item: Item) -> Bool {
+        guard let assignedDate = item.assignedDate,
+              let priorityDate = item.todayPriorityDate else {
+            return false
+        }
+        return Calendar.current.isDate(priorityDate, inSameDayAs: assignedDate)
+    }
+
     private func toggleCompletion(for item: Item) {
         withAnimation {
             item.isCompleted.toggle()
@@ -920,6 +928,7 @@ struct ContentView: View {
     private func moveOverdueTasksToInbox() {
         let calendar = Calendar.current
         let startOfToday = calendar.startOfDay(for: currentDate)
+        let rolloverDate = currentDate
         
         let overdueItems = scheduledItems.filter { item in
             guard let date = item.assignedDate else { return false }
@@ -928,8 +937,13 @@ struct ContentView: View {
         
         withAnimation {
             for item in overdueItems {
-                item.assignedDate = nil
-                item.todayPriorityDate = nil
+                if isPrioritizedOnAssignedDate(item) {
+                    item.assignedDate = rolloverDate
+                    item.todayPriorityDate = startOfToday
+                } else {
+                    item.assignedDate = nil
+                    item.todayPriorityDate = nil
+                }
             }
         }
     }
