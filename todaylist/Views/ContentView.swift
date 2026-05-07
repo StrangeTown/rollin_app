@@ -189,7 +189,22 @@ struct ContentView: View {
                                     }
                                 ) {
                                     let isTodaySection = Calendar.current.isDate(date, inSameDayAs: currentDate)
-                                    let sectionItems = filteredItems(for: date, items: grouped[date] ?? [])
+                                    let rawSectionItems = grouped[date] ?? []
+                                    let sectionItems = filteredItems(for: date, items: rawSectionItems)
+                                    let completedTodayCount = sectionItems.filter(\.isCompleted).count
+                                    if isTodaySection, !sectionItems.isEmpty {
+                                        HStack(spacing: 12) {
+                                            Text("共\(sectionItems.count)条")
+                                            if completedTodayCount > 0 {
+                                                Text("已完成\(completedTodayCount)条")
+                                            }
+                                            Spacer(minLength: 0)
+                                        }
+                                        .font(.caption2)
+                                        .foregroundStyle(.secondary)
+                                        .listRowSeparator(.hidden)
+                                        .listRowInsets(EdgeInsets(top: 2, leading: 30, bottom: 6, trailing: 0))
+                                    }
                                     if sectionItems.isEmpty, isTodaySection {
                                         Text(todaySectionEmptyMessage)
                                             .font(.subheadline)
@@ -541,20 +556,8 @@ struct ContentView: View {
     }
 
     private var todaySectionEmptyMessage: String {
-        let hasAdditionalFilter = todayContextFilter != nil || todayPriorityOnlyFilter
-        if todayTaskFilterMode == .incomplete && hasAdditionalFilter {
-            return "今天没有符合筛选条件的未完成任务"
-        }
-        if hasAdditionalFilter {
-            return "今天没有符合筛选条件的任务"
-        }
-        if let context = todayContextFilter {
-            return "“\(context.name)”下今天没有任务"
-        }
-        if todayTaskFilterMode == .incomplete {
-            return "今天没有未完成任务"
-        }
-        return "今天没有任务"
+        let hasFilter = todayTaskFilterMode != .all || todayContextFilter != nil || todayPriorityOnlyFilter
+        return hasFilter ? "没有符合筛选条件的任务" : "今天没有任务"
     }
 
     private var todayTaskFilterControl: some View {
