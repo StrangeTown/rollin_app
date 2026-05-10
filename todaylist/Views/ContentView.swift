@@ -58,7 +58,10 @@ struct ContentView: View {
     @State private var showTimelineSheet = false
     @State private var showDailyLogSheet = false
     @State private var showFocusSession = false
-    @State private var focusIsRunning = false
+    // 专注计时状态在此持有，确保「收起 inspector」后计时仍在继续。
+    @State private var focusItem: Item?
+    @State private var focusStartedAt: Date?
+    @State private var focusEndedAt: Date?
     @State private var showWeeklyMatrix = false
     @State private var todayTaskFilterMode: TodayTaskFilterMode = .all
     @State private var todayContextFilter: ContextNode?
@@ -117,9 +120,9 @@ struct ContentView: View {
                     }
                 }
                 .frame(maxHeight: 500)
-                
+
                 Divider()
-                
+
                 List {
                     contextSection
                 }
@@ -223,7 +226,9 @@ struct ContentView: View {
                                                 isScheduled: true,
                                                 isToday: isTodaySection,
                                                 showContextTag: false,
-                                                onToggleTodayPriority: isTodaySection ? { toggleTodayPriority(for: item) } : nil
+                                                onToggleTodayPriority: isTodaySection ? { toggleTodayPriority(for: item) } : nil,
+                                                onStartFocus: (isTodaySection && !item.isCompleted) ? { startFocus(on: item) } : nil,
+                                                isCurrentlyFocused: isFocused(item)
                                             )
                                             .listRowSeparator(.hidden)
                                             .listRowInsets(EdgeInsets(top: Theme.Spacing.listItemVertical, leading: 0, bottom: Theme.Spacing.listItemVertical, trailing: 0))
@@ -374,7 +379,9 @@ struct ContentView: View {
         .inspector(isPresented: $showFocusSession) {
             FocusSessionView(
                 onClose: { showFocusSession = false },
-                isRunningExternal: $focusIsRunning
+                item: $focusItem,
+                startedAt: $focusStartedAt,
+                endedAt: $focusEndedAt
             )
             .inspectorColumnWidth(min: 360, ideal: 420, max: 560)
         }
@@ -887,6 +894,27 @@ struct ContentView: View {
             item.assignedDate = nil
             item.todayPriorityDate = nil
         }
+    }
+
+    private var focusIsRunning: Bool {
+        focusStartedAt != nil && focusEndedAt == nil
+    }
+
+    private func isFocused(_ item: Item) -> Bool {
+        guard focusIsRunning, let current = focusItem else { return false }
+        return current.persistentModelID == item.persistentModelID
+    }
+
+    private func startFocus(on item: Item) {
+        // 同一个任务正在专注：仅打开 inspector，不重置计时。
+        if isFocused(item) {
+            showFocusSession = true
+            return
+        }
+        focusItem = item
+        focusStartedAt = Date()
+        focusEndedAt = nil
+        showFocusSession = true
     }
 
     private func toggleTodayPriority(for item: Item) {

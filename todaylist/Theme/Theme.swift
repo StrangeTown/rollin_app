@@ -296,7 +296,7 @@ extension View {
     func breadcrumbTagStyle() -> some View {
         modifier(BreadcrumbTagStyle())
     }
-    
+
     func badgeStyle(isActive: Bool = false, isSelected: Bool = false) -> some View {
         modifier(BadgeStyle(isActive: isActive, isSelected: isSelected))
     }

@@ -11,7 +11,8 @@
       "Bash(git -C /Users/yinxing/Documents/projects/z/todaylist commit -m \"$\\(cat <<''EOF''\nfeat: 添加任务时显示最近使用的 Context 快捷选择\n\n新建 RecentContextsManager 通过 UserDefaults 记录最近使用的 context UUID，\n在 AddTaskView metadata 行以淡色 pill 形式展示最近 context（最多 3 个），\n点击即可快速选中，省去打开 picker 弹窗的步骤。\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\nEOF\n\\)\")",
       "Bash(find:*)",
       "Bash(xcodebuild:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(git *)"
     ]
   }
 }

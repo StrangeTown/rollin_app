@@ -14,8 +14,10 @@ struct FocusSessionView: View {
     /// 由调用方把 `isPresented` 置为 false。
     var onClose: (() -> Void)? = nil
 
-    /// 把「计时进行中」状态向外暴露，调用方可据此把入口图标染色。
-    var isRunningExternal: Binding<Bool>? = nil
+    // 状态由调用方持有，以便「收起 inspector」时计时仍然继续。
+    @Binding var item: Item?
+    @Binding var startedAt: Date?
+    @Binding var endedAt: Date?
 
     @Environment(\.modelContext) private var modelContext
 
@@ -23,10 +25,17 @@ struct FocusSessionView: View {
     @Query(filter: #Predicate<Item> { $0.assignedDate != nil })
     private var scheduledItems: [Item]
 
-    // MARK: - Local State (临时变量，关闭即丢弃)
-    @State private var selectedItem: Item?
-    @State private var startedAt: Date?
-    @State private var endedAt: Date?
+    init(
+        onClose: (() -> Void)? = nil,
+        item: Binding<Item?> = .constant(nil),
+        startedAt: Binding<Date?> = .constant(nil),
+        endedAt: Binding<Date?> = .constant(nil)
+    ) {
+        self.onClose = onClose
+        self._item = item
+        self._startedAt = startedAt
+        self._endedAt = endedAt
+    }
 
     private var isRunning: Bool {
         startedAt != nil && endedAt == nil
@@ -52,11 +61,13 @@ struct FocusSessionView: View {
             header
 
             Group {
-                if let item = selectedItem {
+                if let current = item {
                     if isEnded, let started = startedAt, let ended = endedAt {
-                        endedView(item: item, elapsed: ended.timeIntervalSince(started))
+                        endedView(item: current, elapsed: ended.timeIntervalSince(started))
                     } else if let started = startedAt {
-                        runningView(item: item, since: started)
+                        runningView(item: current, since: started)
+                    } else {
+                        pickView
                     }
                 } else {
                     pickView
@@ -65,13 +76,6 @@ struct FocusSessionView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .onChange(of: isRunning) { _, newValue in
-            isRunningExternal?.wrappedValue = newValue
-        }
-        .onDisappear {
-            // 视图销毁时同步一次，避免外部状态残留
-            isRunningExternal?.wrappedValue = isRunning
-        }
     }
 
     // MARK: - Header
@@ -82,11 +86,11 @@ struct FocusSessionView: View {
                 .font(.headline)
             Spacer()
             Button(action: { onClose?() }) {
-                Image(systemName: Theme.Icons.dismiss)
+                Image(systemName: "sidebar.right")
                     .foregroundColor(.secondary)
             }
             .buttonStyle(.plain)
-            .help("关闭")
+            .help("收起（计时继续）")
         }
         .padding(.horizontal, 24)
         .padding(.vertical, 16)
@@ -157,8 +161,8 @@ struct FocusSessionView: View {
             Spacer()
 
             HStack(spacing: 12) {
-                Button(action: { onClose?() }) {
-                    Text("关闭")
+                Button(action: { cancelSession() }) {
+                    Text("取消计时")
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.bordered)
@@ -226,23 +230,29 @@ struct FocusSessionView: View {
 
     // MARK: - Actions
 
-    private func startSession(with item: Item) {
-        selectedItem = item
+    private func startSession(with newItem: Item) {
+        item = newItem
         startedAt = Date()
         endedAt = nil
     }
 
     private func endSession() {
-        guard let item = selectedItem, isRunning else { return }
+        guard let current = item, isRunning else { return }
         withAnimation {
-            item.isCompleted = true
-            item.completedAt = Date()
+            current.isCompleted = true
+            current.completedAt = Date()
         }
         endedAt = Date()
     }
 
     private func resetForAnother() {
-        selectedItem = nil
+        item = nil
+        startedAt = nil
+        endedAt = nil
+    }
+
+    private func cancelSession() {
+        item = nil
         startedAt = nil
         endedAt = nil
     }

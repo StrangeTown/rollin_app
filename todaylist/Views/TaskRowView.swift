@@ -11,6 +11,8 @@ struct TaskRowView: View {
     let isToday: Bool
     let showContextTag: Bool
     var onToggleTodayPriority: (() -> Void)? = nil
+    var onStartFocus: (() -> Void)? = nil
+    var isCurrentlyFocused: Bool = false
 
     // State for hover effect on action button
     @State private var isActionHovering = false
@@ -146,6 +148,15 @@ struct TaskRowView: View {
         .contextMenu {
             Button(action: onEdit) {
                 Label("Edit", systemImage: Theme.Icons.edit)
+            }
+
+            if let onStartFocus {
+                Button(action: onStartFocus) {
+                    Label(
+                        isCurrentlyFocused ? "查看专注计时" : "开始专注",
+                        systemImage: Theme.Icons.focus
+                    )
+                }
             }
 
             if isToday, let onToggleTodayPriority {
