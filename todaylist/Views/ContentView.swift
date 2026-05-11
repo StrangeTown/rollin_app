@@ -62,6 +62,7 @@ struct ContentView: View {
     @State private var focusItem: Item?
     @State private var focusStartedAt: Date?
     @State private var focusEndedAt: Date?
+    @State private var focusPausedElapsed: TimeInterval?
     @State private var showWeeklyMatrix = false
     @State private var todayTaskFilterMode: TodayTaskFilterMode = .all
     @State private var todayContextFilter: ContextNode?
@@ -107,7 +108,7 @@ struct ContentView: View {
         // Cache computed data to avoid redundant calculations
         let grouped = groupedItems
         let sortedDates = grouped.keys.sorted(by: >)
-        
+
         NavigationSplitView(columnVisibility: $columnVisibility) {
             // MARK: - Sidebar (Inbox + Contexts)
             VStack(spacing: 0) {
@@ -381,9 +382,27 @@ struct ContentView: View {
                 onClose: { showFocusSession = false },
                 item: $focusItem,
                 startedAt: $focusStartedAt,
-                endedAt: $focusEndedAt
+                endedAt: $focusEndedAt,
+                pausedElapsed: $focusPausedElapsed
             )
             .inspectorColumnWidth(min: 360, ideal: 420, max: 560)
+        }
+        .onChange(of: focusStartedAt) { _, newValue in
+            if let started = newValue, focusEndedAt == nil {
+                FocusStatusBarController.shared.start(taskTitle: focusItem?.title, startedAt: started)
+            } else {
+                FocusStatusBarController.shared.stop()
+            }
+        }
+        .onChange(of: focusEndedAt) { _, newValue in
+            if newValue != nil {
+                FocusStatusBarController.shared.stop()
+            }
+        }
+        .onChange(of: focusItem?.title) { _, newValue in
+            if focusStartedAt != nil, focusEndedAt == nil {
+                FocusStatusBarController.shared.updateTitle(newValue)
+            }
         }
         .sheet(isPresented: $showWeeklyMatrix) {
             ReviewView()
@@ -897,7 +916,7 @@ struct ContentView: View {
     }
 
     private var focusIsRunning: Bool {
-        focusStartedAt != nil && focusEndedAt == nil
+        focusEndedAt == nil && (focusStartedAt != nil || focusPausedElapsed != nil)
     }
 
     private func isFocused(_ item: Item) -> Bool {
@@ -914,6 +933,7 @@ struct ContentView: View {
         focusItem = item
         focusStartedAt = Date()
         focusEndedAt = nil
+        focusPausedElapsed = nil
         showFocusSession = true
     }
 

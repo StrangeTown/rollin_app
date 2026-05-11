@@ -36,7 +36,7 @@ struct todaylistApp: App {
                 .keyboardShortcut("p", modifiers: [.command, .shift])
             }
         }
-        
+
         Window("Memorize", id: "memorize") {
             MemorizeView()
                 .modelContainer(sharedModelContainer)

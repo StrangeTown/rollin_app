@@ -146,8 +146,16 @@ struct TaskRowView: View {
             }
         }
         .contextMenu {
-            Button(action: onEdit) {
-                Label("Edit", systemImage: Theme.Icons.edit)
+            // 最常用的两项放在最上面单独成组
+            let hasTopGroup = (isToday && onToggleTodayPriority != nil) || onStartFocus != nil
+
+            if isToday, let onToggleTodayPriority {
+                Button(action: onToggleTodayPriority) {
+                    Label(
+                        isPrioritizedForToday ? "取消优先" : "优先",
+                        systemImage: isPrioritizedForToday ? Theme.Icons.priorityOff : Theme.Icons.priority
+                    )
+                }
             }
 
             if let onStartFocus {
@@ -159,13 +167,12 @@ struct TaskRowView: View {
                 }
             }
 
-            if isToday, let onToggleTodayPriority {
-                Button(action: onToggleTodayPriority) {
-                    Label(
-                        isPrioritizedForToday ? "取消优先" : "优先",
-                        systemImage: isPrioritizedForToday ? Theme.Icons.priorityOff : Theme.Icons.priority
-                    )
-                }
+            if hasTopGroup {
+                Divider()
+            }
+
+            Button(action: onEdit) {
+                Label("Edit", systemImage: Theme.Icons.edit)
             }
 
             if !isScheduled || (isToday && !item.isCompleted) {

@@ -18,6 +18,8 @@ struct FocusSessionView: View {
     @Binding var item: Item?
     @Binding var startedAt: Date?
     @Binding var endedAt: Date?
+    // 暂停时记录已经走过的秒数；nil 表示未暂停。恢复时把 startedAt 往回拨这个值。
+    @Binding var pausedElapsed: TimeInterval?
 
     @Environment(\.modelContext) private var modelContext
 
@@ -29,16 +31,22 @@ struct FocusSessionView: View {
         onClose: (() -> Void)? = nil,
         item: Binding<Item?> = .constant(nil),
         startedAt: Binding<Date?> = .constant(nil),
-        endedAt: Binding<Date?> = .constant(nil)
+        endedAt: Binding<Date?> = .constant(nil),
+        pausedElapsed: Binding<TimeInterval?> = .constant(nil)
     ) {
         self.onClose = onClose
         self._item = item
         self._startedAt = startedAt
         self._endedAt = endedAt
+        self._pausedElapsed = pausedElapsed
     }
 
     private var isRunning: Bool {
         startedAt != nil && endedAt == nil
+    }
+
+    private var isPaused: Bool {
+        pausedElapsed != nil && endedAt == nil
     }
 
     private var isEnded: Bool {
@@ -64,8 +72,13 @@ struct FocusSessionView: View {
                 if let current = item {
                     if isEnded, let started = startedAt, let ended = endedAt {
                         endedView(item: current, elapsed: ended.timeIntervalSince(started))
+                    } else if isEnded, let pausedElapsed {
+                        // 在暂停状态下被「结束」时，startedAt 为 nil；用 pausedElapsed 作为最终用时。
+                        endedView(item: current, elapsed: pausedElapsed)
                     } else if let started = startedAt {
                         runningView(item: current, since: started)
+                    } else if let pausedElapsed {
+                        pausedRunningView(item: current, elapsed: pausedElapsed)
                     } else {
                         pickView
                     }
@@ -133,7 +146,7 @@ struct FocusSessionView: View {
     // MARK: - Running Stage
 
     private func runningView(item: Item, since started: Date) -> some View {
-        VStack(spacing: 24) {
+        VStack(spacing: 16) {
             Spacer()
 
             VStack(spacing: 8) {
@@ -158,6 +171,8 @@ struct FocusSessionView: View {
                     .foregroundStyle(Theme.Colors.todayAccent)
             }
 
+            pauseToggleButton(isPaused: false)
+
             Spacer()
 
             HStack(spacing: 12) {
@@ -178,6 +193,71 @@ struct FocusSessionView: View {
             .padding(.horizontal, 24)
             .padding(.bottom, 24)
         }
+    }
+
+    private func pausedRunningView(item: Item, elapsed: TimeInterval) -> some View {
+        VStack(spacing: 16) {
+            Spacer()
+
+            VStack(spacing: 8) {
+                Text(item.title)
+                    .font(.title3)
+                    .fontWeight(.medium)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(3)
+                    .foregroundStyle(Theme.Colors.primaryText)
+                if let context = item.context {
+                    Text(context.fullPath.replacingOccurrences(of: " / ", with: " › "))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .padding(.horizontal, 32)
+
+            Text(Self.formatElapsed(elapsed))
+                .font(.system(size: 56, weight: .light, design: .rounded))
+                .monospacedDigit()
+                .foregroundStyle(Theme.Colors.todayAccent.opacity(0.55))
+
+            pauseToggleButton(isPaused: true)
+
+            Spacer()
+
+            HStack(spacing: 12) {
+                Button(action: { cancelSession() }) {
+                    Text("取消计时")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.large)
+
+                Button(action: { endSession() }) {
+                    Text("结束计时（完成任务）")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+            }
+            .padding(.horizontal, 24)
+            .padding(.bottom, 24)
+        }
+    }
+
+    private func pauseToggleButton(isPaused: Bool) -> some View {
+        Button(action: { isPaused ? resumeSession() : pauseSession() }) {
+            HStack(spacing: 4) {
+                Image(systemName: isPaused ? "play.fill" : "pause.fill")
+                    .font(.system(size: 9))
+                Text(isPaused ? "继续" : "暂停")
+                    .font(.caption)
+            }
+            .foregroundStyle(.secondary)
+            .padding(.vertical, 4)
+            .padding(.horizontal, 10)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help(isPaused ? "继续计时" : "暂停计时")
     }
 
     // MARK: - Ended Stage
@@ -234,27 +314,43 @@ struct FocusSessionView: View {
         item = newItem
         startedAt = Date()
         endedAt = nil
+        pausedElapsed = nil
     }
 
     private func endSession() {
-        guard let current = item, isRunning else { return }
+        guard let current = item, (isRunning || isPaused) else { return }
         withAnimation {
             current.isCompleted = true
             current.completedAt = Date()
         }
         endedAt = Date()
+        // 暂停状态下结束：startedAt 已是 nil，pausedElapsed 仍保留以便 endedView 使用。
     }
 
     private func resetForAnother() {
         item = nil
         startedAt = nil
         endedAt = nil
+        pausedElapsed = nil
     }
 
     private func cancelSession() {
         item = nil
         startedAt = nil
         endedAt = nil
+        pausedElapsed = nil
+    }
+
+    private func pauseSession() {
+        guard isRunning, let started = startedAt else { return }
+        pausedElapsed = Date().timeIntervalSince(started)
+        startedAt = nil
+    }
+
+    private func resumeSession() {
+        guard let elapsed = pausedElapsed else { return }
+        startedAt = Date().addingTimeInterval(-elapsed)
+        pausedElapsed = nil
     }
 
     // MARK: - Formatting
