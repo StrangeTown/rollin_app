@@ -404,6 +404,12 @@ struct ContentView: View {
                 FocusStatusBarController.shared.updateTitle(newValue)
             }
         }
+        .onChange(of: focusItem?.isCompleted) { _, newValue in
+            // 任务在别处被勾选完成时，等价于在专注面板里点了「结束计时（完成任务）」。
+            guard newValue == true, focusEndedAt == nil,
+                  focusStartedAt != nil || focusPausedElapsed != nil else { return }
+            focusEndedAt = Date()
+        }
         .sheet(isPresented: $showWeeklyMatrix) {
             ReviewView()
         }
