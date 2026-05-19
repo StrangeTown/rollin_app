@@ -193,6 +193,7 @@ struct FocusSessionView: View {
             .padding(.horizontal, 24)
             .padding(.bottom, 24)
         }
+        .background(FocusFlowBackground())
     }
 
     private func pausedRunningView(item: Item, elapsed: TimeInterval) -> some View {
@@ -410,6 +411,47 @@ private struct FocusItemRow: View {
                 isHovering = hovering
             }
         }
+    }
+}
+
+// MARK: - Flow Background
+
+/// 专注中状态的微弱流动背景。两团极淡的 todayAccent 高光在不同周期下缓慢漂移，
+/// 经重模糊后形成几乎察觉不到的呼吸感，避免争夺视觉焦点。
+private struct FocusFlowBackground: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        if reduceMotion {
+            Color.clear
+        } else {
+            TimelineView(.animation(minimumInterval: 1.0 / 20.0, paused: false)) { context in
+                let t = context.date.timeIntervalSinceReferenceDate
+                ZStack {
+                    blob(at: orbit(t: t, period: 19, radius: 0.35, phase: 0))
+                    blob(at: orbit(t: t, period: 27, radius: 0.40, phase: .pi))
+                }
+                .blur(radius: 60)
+            }
+            .allowsHitTesting(false)
+        }
+    }
+
+    private func orbit(t: Double, period: Double, radius: Double, phase: Double) -> UnitPoint {
+        let angle = (t / period) * 2 * .pi + phase
+        return UnitPoint(x: 0.5 + radius * cos(angle), y: 0.5 + radius * sin(angle))
+    }
+
+    private func blob(at center: UnitPoint) -> some View {
+        RadialGradient(
+            colors: [
+                Theme.Colors.todayAccent.opacity(0.10),
+                Theme.Colors.todayAccent.opacity(0)
+            ],
+            center: center,
+            startRadius: 0,
+            endRadius: 220
+        )
     }
 }
 
