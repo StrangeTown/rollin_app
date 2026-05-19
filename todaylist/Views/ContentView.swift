@@ -79,6 +79,9 @@ struct ContentView: View {
     
     @State private var taskToEdit: Item?
     @State private var showSettings = false
+
+    // 「今天」展开行内子任务输入框的父任务 ID；nil 表示没有任何一行处于添加中。
+    @State private var subtaskInputForID: PersistentIdentifier?
     
     // App Storage for retention policy
     @AppStorage("retentionDays") private var retentionDays: Int = 365
@@ -217,18 +220,40 @@ struct ContentView: View {
                                     } else {
                                         ForEach(sectionItems) { item in
                                             if isTodaySection {
-                                                TodayTaskGroup(
+                                                TaskRowView(
                                                     item: item,
                                                     onToggleCompletion: { toggleCompletion(for: item) },
                                                     onMove: { removeFromToday(item) },
                                                     onDelete: { deleteItem(item) },
                                                     onEdit: { taskToEdit = item },
+                                                    isScheduled: true,
+                                                    isToday: true,
+                                                    showContextTag: false,
                                                     onToggleTodayPriority: { toggleTodayPriority(for: item) },
                                                     onStartFocus: item.isCompleted ? nil : { startFocus(on: item) },
-                                                    isCurrentlyFocused: isFocused(item)
+                                                    isCurrentlyFocused: isFocused(item),
+                                                    onAddSubtask: { subtaskInputForID = item.persistentModelID }
                                                 )
                                                 .listRowSeparator(.hidden)
                                                 .listRowInsets(EdgeInsets(top: Theme.Spacing.listItemVertical, leading: 0, bottom: Theme.Spacing.listItemVertical, trailing: 0))
+
+                                                ForEach(item.subtasks) { sub in
+                                                    SubtaskRow(
+                                                        subtask: sub,
+                                                        onToggleCompletion: { toggleSubtask(in: item, id: sub.id) },
+                                                        onDelete: { deleteSubtask(from: item, id: sub.id) }
+                                                    )
+                                                    .listRowSeparator(.hidden)
+                                                    .listRowInsets(EdgeInsets())
+                                                }
+
+                                                if subtaskInputForID == item.persistentModelID {
+                                                    NewSubtaskInputRow(parent: item) {
+                                                        subtaskInputForID = nil
+                                                    }
+                                                    .listRowSeparator(.hidden)
+                                                    .listRowInsets(EdgeInsets())
+                                                }
                                             } else {
                                                 TaskRowView(
                                                     item: item,
@@ -975,6 +1000,20 @@ struct ContentView: View {
         }
     }
 
+    private func toggleSubtask(in parent: Item, id: UUID) {
+        guard let idx = parent.subtasks.firstIndex(where: { $0.id == id }) else { return }
+        withAnimation {
+            parent.subtasks[idx].isCompleted.toggle()
+            parent.subtasks[idx].completedAt = parent.subtasks[idx].isCompleted ? Date() : nil
+        }
+    }
+
+    private func deleteSubtask(from parent: Item, id: UUID) {
+        withAnimation {
+            parent.subtasks.removeAll { $0.id == id }
+        }
+    }
+
     private func deleteInboxItems(offsets: IndexSet) {
         withAnimation {
             for index in offsets {
@@ -1599,70 +1638,6 @@ struct ContextFilterOptionView: View {
         )
         .clipShape(RoundedRectangle(cornerRadius: 6))
         .onHover { isHovering = $0 }
-    }
-}
-
-// MARK: - Today Task Group (Parent + Subtasks + Inline Add Input)
-
-/// 「今天」专属的任务分组：父任务 + 缩进展示的子任务 + 行内新增输入框。
-/// 子任务是 Codable 数组、随父 Item 一起持久化；这里通过 id 在 `item.subtasks` 中查找并就地修改。
-private struct TodayTaskGroup: View {
-    let item: Item
-    let onToggleCompletion: () -> Void
-    let onMove: () -> Void
-    let onDelete: () -> Void
-    let onEdit: () -> Void
-    let onToggleTodayPriority: () -> Void
-    let onStartFocus: (() -> Void)?
-    let isCurrentlyFocused: Bool
-
-    @State private var isAddingSubtask = false
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            TaskRowView(
-                item: item,
-                onToggleCompletion: onToggleCompletion,
-                onMove: onMove,
-                onDelete: onDelete,
-                onEdit: onEdit,
-                isScheduled: true,
-                isToday: true,
-                showContextTag: false,
-                onToggleTodayPriority: onToggleTodayPriority,
-                onStartFocus: onStartFocus,
-                isCurrentlyFocused: isCurrentlyFocused,
-                onAddSubtask: { isAddingSubtask = true }
-            )
-
-            ForEach(item.subtasks) { sub in
-                SubtaskRow(
-                    subtask: sub,
-                    onToggleCompletion: { toggleSubtask(id: sub.id) },
-                    onDelete: { deleteSubtask(id: sub.id) }
-                )
-            }
-
-            if isAddingSubtask {
-                NewSubtaskInputRow(parent: item) {
-                    isAddingSubtask = false
-                }
-            }
-        }
-    }
-
-    private func toggleSubtask(id: UUID) {
-        guard let idx = item.subtasks.firstIndex(where: { $0.id == id }) else { return }
-        withAnimation {
-            item.subtasks[idx].isCompleted.toggle()
-            item.subtasks[idx].completedAt = item.subtasks[idx].isCompleted ? Date() : nil
-        }
-    }
-
-    private func deleteSubtask(id: UUID) {
-        withAnimation {
-            item.subtasks.removeAll { $0.id == id }
-        }
     }
 }
 
