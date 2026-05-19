@@ -13,6 +13,7 @@ struct TaskRowView: View {
     var onToggleTodayPriority: (() -> Void)? = nil
     var onStartFocus: (() -> Void)? = nil
     var isCurrentlyFocused: Bool = false
+    var onAddSubtask: (() -> Void)? = nil
 
     // State for hover effect on action button
     @State private var isActionHovering = false
@@ -89,12 +90,22 @@ struct TaskRowView: View {
 
             HStack(alignment: .top, spacing: 0) {
                 VStack(alignment: .leading, spacing: Theme.Spacing.taskRowInternal) {
-                    Text(item.title)
-                        .foregroundStyle(titleColor)
-                        .strikethrough(item.isCompleted)
-                        .lineLimit(nil)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .multilineTextAlignment(.leading)
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                        Text(item.title)
+                            .foregroundStyle(titleColor)
+                            .strikethrough(item.isCompleted)
+                            .lineLimit(nil)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .multilineTextAlignment(.leading)
+
+                        if isToday, !item.subtasks.isEmpty {
+                            let done = item.subtasks.filter { $0.isCompleted }.count
+                            Text("\(done)/\(item.subtasks.count)")
+                                .font(.caption2)
+                                .monospacedDigit()
+                                .foregroundStyle(.secondary)
+                        }
+                    }
 
                     if (isScheduled || showContextTag), let context = item.context {
                         Text(context.fullPath.replacingOccurrences(of: " / ", with: " › "))
@@ -147,7 +158,14 @@ struct TaskRowView: View {
         }
         .contextMenu {
             // 最常用的两项放在最上面单独成组
-            let hasTopGroup = (isToday && onToggleTodayPriority != nil) || onStartFocus != nil
+            let canAddSubtask = isToday && onAddSubtask != nil
+            let hasTopGroup = canAddSubtask || (isToday && onToggleTodayPriority != nil) || onStartFocus != nil
+
+            if canAddSubtask, let onAddSubtask {
+                Button(action: onAddSubtask) {
+                    Label("添加子任务", systemImage: Theme.Icons.add)
+                }
+            }
 
             if isToday, let onToggleTodayPriority {
                 Button(action: onToggleTodayPriority) {
@@ -186,5 +204,118 @@ struct TaskRowView: View {
                 Label("Delete", systemImage: Theme.Icons.delete)
             }
         }
+    }
+}
+
+// MARK: - Subtask Row
+
+/// 子任务行：仅在 Today 视图下显示。左缩进、轻量样式；只支持「勾选完成」+「右键删除」。
+/// 子任务是 Codable 值类型，所以这里只展示，状态变更通过回调由父视图操作 `parent.subtasks` 数组。
+struct SubtaskRow: View {
+    let subtask: Subtask
+    let onToggleCompletion: () -> Void
+    let onDelete: () -> Void
+
+    @State private var isHovering = false
+    @State private var isCheckboxHovering = false
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 8) {
+            Image(systemName: subtask.isCompleted ? Theme.Icons.taskComplete : Theme.Icons.taskIncomplete)
+                .font(.system(size: 12))
+                .foregroundStyle(subtask.isCompleted ? Theme.Colors.completedText : .secondary)
+                .contentShape(Rectangle().size(width: 20, height: 20))
+                .onTapGesture { onToggleCompletion() }
+                .onHover { hovering in
+                    if hovering, !isCheckboxHovering {
+                        NSCursor.pointingHand.push()
+                        isCheckboxHovering = true
+                    } else if !hovering, isCheckboxHovering {
+                        NSCursor.pop()
+                        isCheckboxHovering = false
+                    }
+                }
+                .onDisappear {
+                    if isCheckboxHovering {
+                        NSCursor.pop()
+                        isCheckboxHovering = false
+                    }
+                }
+
+            Text(subtask.title)
+                .font(.callout)
+                .foregroundStyle(subtask.isCompleted ? Theme.Colors.completedText : Theme.Colors.primaryText)
+                .strikethrough(subtask.isCompleted)
+                .lineLimit(nil)
+                .fixedSize(horizontal: false, vertical: true)
+                .multilineTextAlignment(.leading)
+
+            Spacer(minLength: 0)
+        }
+        .padding(.vertical, 2)
+        .padding(.horizontal, 6)
+        .padding(.leading, Theme.Spacing.childIndent)
+        .background(
+            RoundedRectangle(cornerRadius: Theme.CornerRadius.medium)
+                .fill(isHovering ? Theme.Colors.hoverBackground : Color.clear)
+        )
+        .onHover { hovering in
+            withAnimation(Theme.Animation.standard) { isHovering = hovering }
+        }
+        .contextMenu {
+            Button(role: .destructive, action: onDelete) {
+                Label("删除", systemImage: Theme.Icons.delete)
+            }
+        }
+    }
+}
+
+// MARK: - New-subtask inline input
+
+/// 子任务的行内输入框：回车保存并自动开启下一行；空回车 / Esc / 失焦清空 → 收起。
+struct NewSubtaskInputRow: View {
+    let parent: Item
+    /// 当用户表示已完成添加（空回车 / Esc / 失焦清空时）由调用方收起输入框。
+    let onDismiss: () -> Void
+
+    @State private var draft: String = ""
+    @FocusState private var isFocused: Bool
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 8) {
+            Image(systemName: Theme.Icons.taskIncomplete)
+                .font(.system(size: 12))
+                .foregroundStyle(.tertiary)
+
+            TextField("添加子任务，回车保存", text: $draft)
+                .textFieldStyle(.plain)
+                .font(.callout)
+                .focused($isFocused)
+                .onSubmit { commit() }
+                .onExitCommand { onDismiss() }
+
+            Spacer(minLength: 0)
+        }
+        .padding(.vertical, 2)
+        .padding(.horizontal, 6)
+        .padding(.leading, Theme.Spacing.childIndent)
+        .onAppear { isFocused = true }
+        .onChange(of: isFocused) { _, focused in
+            // 失去焦点时若输入框为空，自动收起。
+            if !focused && draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                onDismiss()
+            }
+        }
+    }
+
+    private func commit() {
+        let trimmed = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            onDismiss()
+            return
+        }
+        parent.subtasks.append(Subtask(title: trimmed))
+        draft = ""
+        isFocused = true
     }
 }

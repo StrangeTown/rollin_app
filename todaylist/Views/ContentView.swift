@@ -216,23 +216,33 @@ struct ContentView: View {
                                             .padding(.vertical, 8)
                                     } else {
                                         ForEach(sectionItems) { item in
-                                            TaskRowView(
-                                                item: item,
-                                                onToggleCompletion: { toggleCompletion(for: item) },
-                                                onMove: { removeFromToday(item) },
-                                                onDelete: { deleteItem(item) },
-                                                onEdit: {
-                                                    taskToEdit = item
-                                                },
-                                                isScheduled: true,
-                                                isToday: isTodaySection,
-                                                showContextTag: false,
-                                                onToggleTodayPriority: isTodaySection ? { toggleTodayPriority(for: item) } : nil,
-                                                onStartFocus: (isTodaySection && !item.isCompleted) ? { startFocus(on: item) } : nil,
-                                                isCurrentlyFocused: isFocused(item)
-                                            )
-                                            .listRowSeparator(.hidden)
-                                            .listRowInsets(EdgeInsets(top: Theme.Spacing.listItemVertical, leading: 0, bottom: Theme.Spacing.listItemVertical, trailing: 0))
+                                            if isTodaySection {
+                                                TodayTaskGroup(
+                                                    item: item,
+                                                    onToggleCompletion: { toggleCompletion(for: item) },
+                                                    onMove: { removeFromToday(item) },
+                                                    onDelete: { deleteItem(item) },
+                                                    onEdit: { taskToEdit = item },
+                                                    onToggleTodayPriority: { toggleTodayPriority(for: item) },
+                                                    onStartFocus: item.isCompleted ? nil : { startFocus(on: item) },
+                                                    isCurrentlyFocused: isFocused(item)
+                                                )
+                                                .listRowSeparator(.hidden)
+                                                .listRowInsets(EdgeInsets(top: Theme.Spacing.listItemVertical, leading: 0, bottom: Theme.Spacing.listItemVertical, trailing: 0))
+                                            } else {
+                                                TaskRowView(
+                                                    item: item,
+                                                    onToggleCompletion: { toggleCompletion(for: item) },
+                                                    onMove: { removeFromToday(item) },
+                                                    onDelete: { deleteItem(item) },
+                                                    onEdit: { taskToEdit = item },
+                                                    isScheduled: true,
+                                                    isToday: false,
+                                                    showContextTag: false
+                                                )
+                                                .listRowSeparator(.hidden)
+                                                .listRowInsets(EdgeInsets(top: Theme.Spacing.listItemVertical, leading: 0, bottom: Theme.Spacing.listItemVertical, trailing: 0))
+                                            }
                                         }
                                         .onDelete { offsets in
                                             deleteScheduledItems(at: offsets, in: sectionItems)
@@ -1589,6 +1599,70 @@ struct ContextFilterOptionView: View {
         )
         .clipShape(RoundedRectangle(cornerRadius: 6))
         .onHover { isHovering = $0 }
+    }
+}
+
+// MARK: - Today Task Group (Parent + Subtasks + Inline Add Input)
+
+/// 「今天」专属的任务分组：父任务 + 缩进展示的子任务 + 行内新增输入框。
+/// 子任务是 Codable 数组、随父 Item 一起持久化；这里通过 id 在 `item.subtasks` 中查找并就地修改。
+private struct TodayTaskGroup: View {
+    let item: Item
+    let onToggleCompletion: () -> Void
+    let onMove: () -> Void
+    let onDelete: () -> Void
+    let onEdit: () -> Void
+    let onToggleTodayPriority: () -> Void
+    let onStartFocus: (() -> Void)?
+    let isCurrentlyFocused: Bool
+
+    @State private var isAddingSubtask = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            TaskRowView(
+                item: item,
+                onToggleCompletion: onToggleCompletion,
+                onMove: onMove,
+                onDelete: onDelete,
+                onEdit: onEdit,
+                isScheduled: true,
+                isToday: true,
+                showContextTag: false,
+                onToggleTodayPriority: onToggleTodayPriority,
+                onStartFocus: onStartFocus,
+                isCurrentlyFocused: isCurrentlyFocused,
+                onAddSubtask: { isAddingSubtask = true }
+            )
+
+            ForEach(item.subtasks) { sub in
+                SubtaskRow(
+                    subtask: sub,
+                    onToggleCompletion: { toggleSubtask(id: sub.id) },
+                    onDelete: { deleteSubtask(id: sub.id) }
+                )
+            }
+
+            if isAddingSubtask {
+                NewSubtaskInputRow(parent: item) {
+                    isAddingSubtask = false
+                }
+            }
+        }
+    }
+
+    private func toggleSubtask(id: UUID) {
+        guard let idx = item.subtasks.firstIndex(where: { $0.id == id }) else { return }
+        withAnimation {
+            item.subtasks[idx].isCompleted.toggle()
+            item.subtasks[idx].completedAt = item.subtasks[idx].isCompleted ? Date() : nil
+        }
+    }
+
+    private func deleteSubtask(id: UUID) {
+        withAnimation {
+            item.subtasks.removeAll { $0.id == id }
+        }
     }
 }
 

@@ -12,11 +12,11 @@ import SwiftData
 
 enum DataMigrationPlan: SchemaMigrationPlan {
     static var schemas: [any VersionedSchema.Type] {
-        [SchemaV1.self, SchemaV2.self, SchemaV3.self, SchemaV4.self, SchemaV5.self, SchemaV6.self, SchemaV7.self, SchemaV8.self]
+        [SchemaV1.self, SchemaV2.self, SchemaV3.self, SchemaV4.self, SchemaV5.self, SchemaV6.self, SchemaV7.self, SchemaV8.self, SchemaV9.self]
     }
 
     static var stages: [MigrationStage] {
-        [migrateV1toV2, migrateV2toV3, migrateV3toV4, migrateV4toV5, migrateV5toV6, migrateV6toV7, migrateV7toV8]
+        [migrateV1toV2, migrateV2toV3, migrateV3toV4, migrateV4toV5, migrateV5toV6, migrateV6toV7, migrateV7toV8, migrateV8toV9]
     }
 
     static let migrateV1toV2 = MigrationStage.lightweight(
@@ -52,6 +52,11 @@ enum DataMigrationPlan: SchemaMigrationPlan {
     static let migrateV7toV8 = MigrationStage.lightweight(
         fromVersion: SchemaV7.self,
         toVersion: SchemaV8.self
+    )
+
+    static let migrateV8toV9 = MigrationStage.lightweight(
+        fromVersion: SchemaV8.self,
+        toVersion: SchemaV9.self
     )
 }
 
@@ -605,7 +610,91 @@ enum SchemaV8: VersionedSchema {
     }
 }
 
+// MARK: - Subtask (value type)
+
+/// 子任务是「主任务下的勾选小项」，不是独立的 Item，避免污染 Inbox / 焦点选择器 / 回顾 等任何按 Item 查询的视图。
+/// 仅在 Today 视图下渲染；随父 Item 一起持久化、一起删除。
+struct Subtask: Codable, Identifiable, Hashable {
+    var id: UUID = UUID()
+    var title: String
+    var isCompleted: Bool = false
+    var completedAt: Date? = nil
+}
+
+// MARK: - Schema V9 (Current) — adds inline subtasks (Codable array) on Item
+
+enum SchemaV9: VersionedSchema {
+    static var versionIdentifier = Schema.Version(9, 0, 0)
+
+    static var models: [any PersistentModel.Type] {
+        [Item.self, ContextNode.self, MemorizeItem.self]
+    }
+
+    @Model
+    final class Item {
+        var title: String = ""
+        var timestamp: Date = Date()
+        var isCompleted: Bool = false
+        var assignedDate: Date? = nil
+        var completedAt: Date? = nil
+
+        var context: ContextNode?
+
+        var todayPriorityDate: Date? = nil
+
+        // 子任务以 Codable 数组形式挂在父任务上，随父任务一起删除；不是独立 Item。
+        var subtasks: [Subtask] = []
+
+        init(title: String = "", timestamp: Date = Date(), isCompleted: Bool = false, assignedDate: Date? = nil, completedAt: Date? = nil, context: ContextNode? = nil) {
+            self.title = title
+            self.timestamp = timestamp
+            self.isCompleted = isCompleted
+            self.assignedDate = assignedDate
+            self.completedAt = completedAt
+            self.context = context
+        }
+    }
+
+    @Model
+    final class ContextNode {
+        var name: String = ""
+        var id: UUID = UUID()
+        var sortOrder: Int = 0
+
+        var parent: ContextNode?
+        @Relationship(deleteRule: .cascade, inverse: \ContextNode.parent)
+        var children: [ContextNode]? = []
+
+        @Relationship(deleteRule: .nullify, inverse: \Item.context)
+        var items: [Item]? = []
+
+        init(name: String, parent: ContextNode? = nil) {
+            self.name = name
+            self.parent = parent
+        }
+
+        var fullPath: String {
+            if let parent = parent {
+                return parent.fullPath + " / " + name
+            } else {
+                return name
+            }
+        }
+    }
+
+    @Model
+    final class MemorizeItem {
+        var id: UUID = UUID()
+        var content: String = ""
+        var createdAt: Date = Date()
+
+        init(content: String) {
+            self.content = content
+        }
+    }
+}
+
 // Typealiases for easy access to the latest version
-typealias Item = SchemaV8.Item
-typealias ContextNode = SchemaV8.ContextNode
-typealias MemorizeItem = SchemaV8.MemorizeItem
+typealias Item = SchemaV9.Item
+typealias ContextNode = SchemaV9.ContextNode
+typealias MemorizeItem = SchemaV9.MemorizeItem
