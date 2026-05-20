@@ -91,9 +91,11 @@ struct TaskRowView: View {
             HStack(alignment: .top, spacing: 0) {
                 VStack(alignment: .leading, spacing: Theme.Spacing.taskRowInternal) {
                     HStack(alignment: .firstTextBaseline, spacing: 6) {
-                        Text(item.title)
-                            .foregroundStyle(titleColor)
-                            .strikethrough(item.isCompleted)
+                        Text(TitleLinkifier.attributedTitle(
+                            item.title,
+                            isCompleted: item.isCompleted,
+                            baseColor: titleColor
+                        ))
                             .lineLimit(nil)
                             .fixedSize(horizontal: false, vertical: true)
                             .multilineTextAlignment(.leading)
