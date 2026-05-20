@@ -30,11 +30,6 @@ struct TaskRowView: View {
         return formatter
     }()
 
-    // Completed icon color: blue only for Today, gray for past days
-    private var completedIconColor: Color {
-        isToday ? Theme.Colors.todayAccent : Theme.Colors.completedText
-    }
-
     private var isPrioritizedForToday: Bool {
         guard isToday,
               let priorityDate = item.todayPriorityDate,
@@ -55,7 +50,7 @@ struct TaskRowView: View {
         HStack(alignment: .top) {
             // Checkbox with linear icon and animation
             Image(systemName: item.isCompleted ? Theme.Icons.taskComplete : Theme.Icons.taskIncomplete)
-                .foregroundStyle(item.isCompleted ? completedIconColor : (isToday ? Theme.Colors.todayIncomplete : .secondary))
+                .foregroundStyle(isToday ? .secondary : (item.isCompleted ? Theme.Colors.completedText : .secondary))
                 .scaleEffect(completionScale)
                 .contentShape(Rectangle().size(width: 24, height: 24))
                 .onTapGesture {

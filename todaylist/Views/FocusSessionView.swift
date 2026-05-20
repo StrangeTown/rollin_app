@@ -164,6 +164,8 @@ struct FocusSessionView: View {
             }
             .padding(.horizontal, 32)
 
+            subtasksSection(for: item)
+
             TimelineView(.periodic(from: started, by: 1)) { context in
                 Text(Self.formatElapsed(context.date.timeIntervalSince(started)))
                     .font(.system(size: 56, weight: .light, design: .rounded))
@@ -215,6 +217,8 @@ struct FocusSessionView: View {
             }
             .padding(.horizontal, 32)
 
+            subtasksSection(for: item)
+
             Text(Self.formatElapsed(elapsed))
                 .font(.system(size: 56, weight: .light, design: .rounded))
                 .monospacedDigit()
@@ -241,6 +245,38 @@ struct FocusSessionView: View {
             }
             .padding(.horizontal, 24)
             .padding(.bottom, 24)
+        }
+    }
+
+    // MARK: - Subtasks
+
+    @ViewBuilder
+    private func subtasksSection(for item: Item) -> some View {
+        if !item.subtasks.isEmpty {
+            VStack(spacing: 2) {
+                ForEach(item.subtasks) { sub in
+                    SubtaskRow(
+                        subtask: sub,
+                        onToggleCompletion: { toggleSubtask(in: item, id: sub.id) },
+                        onDelete: { deleteSubtask(from: item, id: sub.id) }
+                    )
+                }
+            }
+            .frame(maxWidth: 280)
+        }
+    }
+
+    private func toggleSubtask(in parent: Item, id: UUID) {
+        guard let idx = parent.subtasks.firstIndex(where: { $0.id == id }) else { return }
+        withAnimation {
+            parent.subtasks[idx].isCompleted.toggle()
+            parent.subtasks[idx].completedAt = parent.subtasks[idx].isCompleted ? Date() : nil
+        }
+    }
+
+    private func deleteSubtask(from parent: Item, id: UUID) {
+        withAnimation {
+            parent.subtasks.removeAll { $0.id == id }
         }
     }
 

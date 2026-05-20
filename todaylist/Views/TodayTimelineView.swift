@@ -210,7 +210,7 @@ struct TodayTimelineView: View {
                 }
             }
         }
-        .frame(width: 350, height: 450)
+        .frame(width: 480, height: 450)
         .onChange(of: todayCompletedItems.map(\.id)) { _, _ in
             // Reset filter if selected contexts no longer exist in new data
             guard let selected = selectedFilterIDs else { return }
