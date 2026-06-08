@@ -262,6 +262,12 @@ struct FocusSessionView: View {
                     )
                 }
             }
+            .padding(.vertical, 4)
+            .padding(.horizontal, 4)
+            .background(
+                RoundedRectangle(cornerRadius: Theme.CornerRadius.medium)
+                    .fill(Color.primary.opacity(0.04))
+            )
             .frame(maxWidth: 280)
         }
     }
