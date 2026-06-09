@@ -145,11 +145,37 @@ codesign --sign "$SIGN_ID" ./dist/Follin.dmg
 
 ## Step 8: Notarize
 
+**前置检查：释放 DMG 文件锁**
+
+上一次中断的 notarytool 可能残留 `diskimage` 子进程，导致 notarytool 卡在 `Conducting pre-submission checks` 无法上传。提交前先检查：
+
+```bash
+lsof ./dist/Follin.dmg
+```
+
+如有输出，强制终止对应 PID 后再继续：
+
+```bash
+kill -9 <PID>
+```
+
+**提交公证：**
+
 ```bash
 xcrun notarytool submit ./dist/Follin.dmg --keychain-profile "follin-notarize" --wait
 ```
 
 确认输出包含 `status: Accepted`。如果被拒绝，用 `xcrun notarytool log <submission-id> --keychain-profile "follin-notarize"` 查看原因。
+
+**⚠️ 如果无文件锁但仍卡在连接阶段，则为网络问题：**
+
+用以下命令测试 Apple 公证端点是否可达（公司/企业网络常见 DNS 拦截）：
+
+```bash
+curl --max-time 10 "https://notary-submissions.developer.apple.com" 2>&1 | grep -E "resolve|Connected|curl:"
+```
+
+若提示 `Could not resolve host`，需切换到其他网络（手机热点）或开启能接管 DNS 的代理（如 Clash TUN mode）再重试。
 
 ## Step 9: Staple
 
